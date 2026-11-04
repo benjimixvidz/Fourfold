@@ -66,7 +66,7 @@ struct TetradPipe : Module {
     {
         config(0, 0, NUM_OUTPUTS, NUM_LIGHTS);
         for (int i = 0; i < pipe::kOutputs; ++i)
-            configOutput(ROUTED_OUTPUT + i, string::f("Output %d (right-click to route)", i + 1));
+            configOutput(ROUTED_OUTPUT + i, string::f("Routed %d", i + 1))->description = "Right-click to choose its signal, track and row";
         configLight(LINK_LIGHT, "Linked to Tetrad (place Pipe directly on its right)");
         leftExpander.producerMessage = &messages[0];
         leftExpander.consumerMessage = &messages[1];
@@ -173,17 +173,18 @@ struct TetradPipe : Module {
 
 namespace {
 
-const NVGcolor kLabel = nvgRGB(201, 206, 214);
-const NVGcolor kNumber = nvgRGB(140, 142, 152);
+const NVGcolor kNumber = nvgRGBA(23, 24, 28, 170);   // on the amber columns
 const NVGcolor kTagInk = nvgRGB(23, 24, 28);
 // Track colours, the same as Tetrad's track tabs (ui.hpp).
 const NVGcolor kTrack[pipe::kTracks] = {nvgRGB(255, 176, 59), nvgRGB(46, 196, 182), nvgRGB(170, 120, 240),
                                        nvgRGB(241, 91, 181)};
 
-// Panel layout (Rack pixels, 12 HP = 180 px wide): two columns of 67 px right of the strip,
-// outputs 1-8 left, 9-16 right. Each cell: the number at the top left, the jack, and under it
-// the route as a track tag (its number on the track colour) and the signal.
-constexpr float kLeftX = kStripWidth + 34, kRightX = kLeftX + 67, kRowY = 64, kRowStep = 40;
+// Panel layout (Rack pixels, 10 HP = 150 px wide): two amber columns of 70 px under the name
+// band (every jack is an output: VCV's inverted background), outputs 1-8 left, 9-16 right.
+// Each cell: the number at the top left, the jack, and under it the route as a dark tag with
+// the track number in the track's colour, then the signal.
+constexpr float kLeftX = 39, kRightX = 111, kRowY = 52, kRowStep = 40;
+const math::Rect kColumns[2] = {{{4, 32}, {70, 328}}, {{76, 32}, {70, 328}}};
 Vec jackPos(int i) { return Vec(i < 8 ? kLeftX : kRightX, kRowY + (i % 8) * kRowStep); }
 
 // Right-click menu of an output: signal, track and row.
@@ -225,8 +226,8 @@ struct RoutedPort : PJ301MPort {
     }
 };
 
-// Route under each jack, so the panel always shows where things go: a tag with the track
-// number on the track's colour, then the signal; clock and reset have no tag.
+// Route under each jack, so the panel always shows where things go: a dark tag with the track
+// number in the track's colour, then the signal; clock and reset have no tag.
 struct RoutingLabels : TransparentWidget {
     TetradPipe* module = nullptr;
 
@@ -252,22 +253,19 @@ struct RoutingLabels : TransparentWidget {
             const float textW = nvgTextBounds(vg, 0, 0, name.c_str(), nullptr, bounds);
             float x = p.x - (textW + (tagged ? kTagW + kGap : 0.f)) / 2.f;
             if (tagged) {
-                const NVGcolor c = kTrack[r.track];
                 nvgBeginPath(vg);
                 nvgRoundedRect(vg, x, y - kTagH / 2.f, kTagW, kTagH, 2.f);
-                nvgFillColor(vg, c);
+                nvgFillColor(vg, kTagInk);
                 nvgFill(vg);
                 nvgFontSize(vg, 8.f);
                 nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-                nvgFillColor(vg, kTagInk);
+                nvgFillColor(vg, kTrack[r.track]);
                 nvgText(vg, x + kTagW / 2.f, y + 0.5f, string::f("%d", r.track + 1).c_str(), nullptr);
                 nvgFontSize(vg, kSize);
                 nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-                nvgFillColor(vg, c);
                 x += kTagW + kGap;
-            } else {
-                nvgFillColor(vg, kLabel);
             }
+            nvgFillColor(vg, kTagInk);
             nvgText(vg, x, y, name.c_str(), nullptr);
         }
     }
@@ -281,10 +279,6 @@ struct StaticLabels : TransparentWidget {
             return;
         NVGcontext* vg = args.vg;
         nvgFontFaceId(vg, font->handle);
-        nvgFillColor(vg, kLabel);
-        nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-        nvgFontSize(vg, 10.f);
-        nvgText(vg, (180 + kStripWidth) / 2.f, 37, "RIGHT-CLICK TO ROUTE", nullptr);
         // Output numbers, small, at the top left of each jack.
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
         nvgFillColor(vg, kNumber);
@@ -303,6 +297,11 @@ struct TetradPipeWidget : ModuleWidget {
     {
         setModule(module);
         setPanel(createPanel(asset::plugin(pluginInstance, "res/TetradPipe.svg")));
+        for (const math::Rect& c : kColumns) {
+            auto* tab = new OutputTab;
+            tab->box = c;
+            addChild(tab);
+        }
         auto* labels = new StaticLabels;
         labels->box.size = box.size;
         addChild(labels);
@@ -312,8 +311,9 @@ struct TetradPipeWidget : ModuleWidget {
             port->index = i;
             addOutput(port);
         }
-        addChild(createLightCentered<SmallLight<GreenLight>>(Vec(168, 14), module, TetradPipe::LINK_LIGHT));
-        auto* branding = new Branding("res/brand/tetrad-pipe.svg", "PIPE", true);
+        // Bottom right, beside the lockup.
+        addChild(createLightCentered<SmallLight<GreenLight>>(Vec(box.size.x - 14, box.size.y - 10), module, TetradPipe::LINK_LIGHT));
+        auto* branding = new Branding("res/brand/tetrad-pipe.svg", "PIPE", "ROUTER");
         branding->box.size = box.size;
         addChild(branding);
         auto* routing = new RoutingLabels;

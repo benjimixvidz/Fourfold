@@ -62,6 +62,7 @@ private:
 
     ClockFollower clock;
     dsp::SchmittTrigger clockTrigger, resetTrigger;
+    float clockHoldoff = 0.f;   // seconds left during which CLOCK edges are ignored
     dsp::BooleanTrigger resetButton;
     dsp::PulseGenerator clockLight, clockOut, resetOut;
     bool wasRunning = false;

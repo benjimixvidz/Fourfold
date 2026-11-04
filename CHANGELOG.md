@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.7.0
+
+- Both panels: an amber band across the top with the module logo, the name and the kind of
+  module (SEQUENCER, ROUTER), replacing the strip on the left edge; the Fourfold lockup at the
+  bottom centre. Panel widths follow 1 HP = 5.08 mm exactly.
+- Tetrad: back to 56 HP, so patches made with 2.6.2 keep the Pipe linked. HELP sits in the name
+  band. The outputs of each track share an amber tab (VCV: inverted background for outputs).
+  CLOCK edges are ignored for 1 ms after RESET (VCV voltage standards).
+- Pipe: 10 HP (was 12). Its two output columns are amber, with the routes in dark and the
+  track number in the track's colour. The output tooltip reads "Routed 1 output" with the
+  right-click hint as its description; the Utility tag is dropped (VCV reserves it for basic
+  functions).
+
 ## 2.6.7
 
 - Tetrad: the name strip on the left edge, as on the Pipe and the Fourfold voices. The panel

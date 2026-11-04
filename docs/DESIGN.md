@@ -14,11 +14,12 @@
 4. **Undo instead of confirmation.** Every edit, generator included, is one entry in Rack's
    history (Ctrl+Z / Ctrl+Shift+Z). Nothing asks for confirmation.
 5. **Help in context.** A help line describes what is under the pointer; `H` shows every
-   gesture and shortcut over the panel, as does the HELP button under the inspector.
+   gesture and shortcut over the panel, as does the HELP button in the name band.
 
 ## Layout
 
-- **Name strip (left edge):** the module logo, the name running up the edge, the Fourfold mark.
+- **Name band (top):** the module logo, the name, the kind of module (SEQUENCER, ROUTER) and,
+  on Tetrad, the HELP button; the Fourfold lockup sits at the bottom centre.
 - **Inspector:** transport (large PLAY and RESET buttons, tempo, clock source, PPQN),
   track settings,
   root and scale, generator with its actions (NEW SEED, EUCLID with HITS and ROT, CLEAR),

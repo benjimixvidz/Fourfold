@@ -1,5 +1,5 @@
-// Tetrad panel (59 HP): the name strip on the left edge, then the inspector and the grid up to
-// the top of the panel, every jack on one row at the bottom. Keyboard shortcuts work while the pointer is over the module; keys Rack uses (Delete,
+// Tetrad panel (56 HP): the name band across the top, the inspector on the left, the grid on the
+// right, every jack on one row at the bottom, the Fourfold lockup under it. Keyboard shortcuts work while the pointer is over the module; keys Rack uses (Delete,
 // Ctrl+C...) are only taken when there is a selection to act on.
 
 #include "GridPanel.hpp"
@@ -158,7 +158,7 @@ struct TransportButton : app::Switch {
     }
 };
 
-// HELP, under the inspector: every gesture and shortcut (also key H).
+// HELP, at the right end of the name band: every gesture and shortcut (also key H).
 struct HelpButton : OpaqueWidget {
     UiState* ui = nullptr;
     bool hovered = false;
@@ -208,13 +208,13 @@ struct TetradWidget : ModuleWidget {
         auto* inspector = new Inspector;
         inspector->module = module;
         inspector->ui = &ui;
-        inspector->box.pos = Vec(kStripWidth + 6, 4);
+        inspector->box.pos = Vec(8, 32);
         addChild(inspector);
 
         grid = new GridPanel;
         grid->module = module;
         grid->ui = &ui;
-        grid->box.pos = Vec(kStripWidth + 242, 4);
+        grid->box.pos = Vec(244, 32);
         addChild(grid);
 
         const Vec origin = inspector->box.pos;
@@ -231,42 +231,47 @@ struct TetradWidget : ModuleWidget {
 
         auto* labels = new Labels;
         labels->box.size = box.size;
-        constexpr float jackY = 352, labelY = 330;
+        constexpr float jackY = 347, labelY = 331;
         const char* inputNames[] = {"CLOCK", "RESET", "RUN", "TRANSP"};
         for (int i = 0; i < Tetrad::NUM_INPUTS; ++i) {
-            const float x = kStripWidth + 28 + i * 37;
+            const float x = 28 + i * 37;
             addInput(createInputCentered<PJ301MPort>(Vec(x, jackY), module, i));
             labels->add(Vec(x, labelY), inputNames[i], 7.5f);
         }
         for (int t = 0; t < kNumTracks; ++t) {
-            const float x = kStripWidth + 204 + t * 158;
+            const float x = 204 + t * 158;
             addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<GreenLight>>>(
                 Vec(x, jackY), module, trackParamIndex(t, kTrackEnabled), Tetrad::ON_LIGHT + t));
             labels->add(Vec(x, labelY), string::f("T%d", t + 1), 9.f);
+            // One amber tab under the three outputs of the track and their labels.
+            auto* tab = new OutputTab;
+            tab->box.pos = Vec(x + 21, 323);
+            tab->box.size = Vec(98, 38);
+            addChild(tab);
             const char* outNames[] = {"V/OCT", "GATE", "VEL"};
             for (int k = 0; k < 3; ++k) {
                 const int id = (k == 0 ? Tetrad::VOCT_OUTPUT : k == 1 ? Tetrad::GATE_OUTPUT : Tetrad::VEL_OUTPUT) + t;
                 addOutput(createOutputCentered<PJ301MPort>(Vec(x + 36 + k * 34, jackY), module, id));
-                labels->add(Vec(x + 36 + k * 34, labelY), outNames[k], 7.f);
+                labels->add(Vec(x + 36 + k * 34, labelY), outNames[k], 7.5f, kTextDark);
             }
         }
         addChild(labels);
-        auto* branding = new Branding("res/brand/tetrad.svg", "TETRAD", true);
+        auto* branding = new Branding("res/brand/tetrad.svg", "TETRAD", "SEQUENCER");
         branding->box.size = box.size;
         addChild(branding);
 
         auto* helpButton = new HelpButton;
         helpButton->ui = &ui;
-        // Under the inspector, flush with the bottom of the grid.
-        helpButton->box.size = Vec(60, 19);
-        helpButton->box.pos = Vec(inspector->box.pos.x + inspector->box.size.x - 60,
-                                  grid->box.pos.y + grid->box.size.y - 19);
+        // At the right end of the name band, the kind of module just left of it.
+        helpButton->box.size = Vec(60, 18);
+        helpButton->box.pos = Vec(box.size.x - 10 - 60, kBandTop + 3);
+        branding->kindRight = helpButton->box.pos.x - 10;
         addChild(helpButton);
 
         auto* help = new HelpOverlay;
         help->ui = &ui;
-        help->box.pos = Vec(kStripWidth + 4, 4);
-        help->box.size = Vec(box.size.x - kStripWidth - 8, grid->box.size.y);
+        help->box.pos = Vec(4, 30);
+        help->box.size = Vec(box.size.x - 8, grid->box.size.y + 4);
         addChild(help);
     }
 

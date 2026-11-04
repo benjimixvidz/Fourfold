@@ -1,15 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="60.96mm" height="128.5mm" viewBox="0 0 60.96 128.5">
+<svg xmlns="http://www.w3.org/2000/svg" width="50.80mm" height="128.5mm" viewBox="0 0 50.80 128.5">
   <defs>
     <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A1B20"/><stop offset="1" stop-color="#15161A"/></linearGradient>
   </defs>
-  <rect x="0" y="0" width="60.96" height="128.5" fill="url(#panel)"/>
-  <rect x="0" y="0" width="15.56" height="128.5" fill="#131418"/>
-  <rect x="15.56" y="0" width="0.3" height="128.5" fill="#000000" fill-opacity="0.5"/>
-  <rect x="15.86" y="0" width="0.3" height="128.5" fill="#FFFFFF" fill-opacity="0.05"/>
-  <rect x="16.23" y="16.23" width="21.98" height="109.56" rx="1.2" fill="#1D1E24"/>
-  <rect x="16.23" y="16.23" width="21.98" height="0.3" fill="#000000" fill-opacity="0.45"/>
-  <rect x="16.23" y="125.49" width="21.98" height="0.3" fill="#FFFFFF" fill-opacity="0.04"/>
-  <rect x="38.89" y="16.23" width="21.30" height="109.56" rx="1.2" fill="#1D1E24"/>
-  <rect x="38.89" y="16.23" width="21.30" height="0.3" fill="#000000" fill-opacity="0.45"/>
-  <rect x="38.89" y="125.49" width="21.30" height="0.3" fill="#FFFFFF" fill-opacity="0.04"/>
+  <rect x="0" y="0" width="50.80" height="128.5" fill="url(#panel)"/>
+  <rect x="1.355" y="10.837" width="23.707" height="111.083" rx="1.2" fill="#1D1E24"/>
+  <rect x="1.355" y="10.837" width="23.707" height="0.3" fill="#000000" fill-opacity="0.45"/>
+  <rect x="1.355" y="121.620" width="23.707" height="0.3" fill="#FFFFFF" fill-opacity="0.04"/>
+  <rect x="25.739" y="10.837" width="23.707" height="111.083" rx="1.2" fill="#1D1E24"/>
+  <rect x="25.739" y="10.837" width="23.707" height="0.3" fill="#000000" fill-opacity="0.45"/>
+  <rect x="25.739" y="121.620" width="23.707" height="0.3" fill="#FFFFFF" fill-opacity="0.04"/>
 </svg>

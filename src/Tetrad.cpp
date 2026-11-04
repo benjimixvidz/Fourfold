@@ -155,6 +155,7 @@ void Tetrad::process(const ProcessArgs& args)
     const bool resetPressed = resetButton.process(params[RESET_PARAM].getValue() > 0.5f);
     const bool resetEdge = resetTrigger.process(inputs[RESET_INPUT].getVoltage(), 0.1f, 2.f);
     if (resetEdge || resetPressed || (wasPlayOn && !playOn)) {
+        clockHoldoff = 1e-3f;   // VCV: ignore CLOCK for 1 ms after RESET
         clock.reset();
         internalBeat = 0.0;
         internalTick = -1;
@@ -167,7 +168,8 @@ void Tetrad::process(const ProcessArgs& args)
     TransportState tr;
     bool tick = false;
     if (external) {
-        tick = clockTrigger.process(inputs[CLOCK_INPUT].getVoltage(), 0.1f, 2.f);
+        tick = clockTrigger.process(inputs[CLOCK_INPUT].getVoltage(), 0.1f, 2.f) && clockHoldoff <= 0.f;
+        clockHoldoff -= args.sampleTime;
         clock.setPpqn(ppqn);
         tr = clock.tick(tick, run, args.sampleRate);
     } else {

@@ -1,21 +1,22 @@
 #pragma once
-// A2: the module name runs up the left edge on an amber band, the module logo above it and the
-// Fourfold mark below (res/brand). The compact header stays for a module without the band.
+// Brand pieces shared by both panels: the amber band across the top (module logo on the left,
+// name centred, kind of module on the right, in dark on amber), the Fourfold lockup at the bottom
+// centre (res/brand), and the amber tab that marks outputs.
 
 #include "plugin.hpp"
 
-constexpr float kStripWidth = 46.f;
+constexpr float kBandTop = 4.f, kBandHeight = 24.f;
 
 struct Branding : rack::TransparentWidget {
-    std::shared_ptr<rack::window::Svg> logo, mark;
-    std::string name;
-    bool vertical = false;   // A2 strip on the left edge; else a compact header
+    std::shared_ptr<rack::window::Svg> logo, lockup;
+    std::string name, kind;
+    float kindRight = 0.f;   // right edge of the kind text; 0: the band's right end
 
-    Branding(const std::string& logoFile, const std::string& moduleName, bool strip = false)
-        : name(moduleName), vertical(strip)
+    Branding(const std::string& logoFile, const std::string& moduleName, const std::string& moduleKind)
+        : name(moduleName), kind(moduleKind)
     {
         logo = rack::window::Svg::load(rack::asset::plugin(pluginInstance, logoFile));
-        mark = rack::window::Svg::load(rack::asset::plugin(pluginInstance, "res/brand/fourfold.svg"));
+        lockup = rack::window::Svg::load(rack::asset::plugin(pluginInstance, "res/brand/fourfold-lockup.svg"));
     }
 
     static void drawSvg(NVGcontext* vg, const rack::window::Svg& svg, float x, float y, float scale)
@@ -30,41 +31,40 @@ struct Branding : rack::TransparentWidget {
     void draw(const DrawArgs& args) override
     {
         auto font = panelFont();
-        if (!font || !logo || !mark)
+        if (!font || !logo || !lockup)
             return;
         NVGcontext* vg = args.vg;
-        nvgFontFaceId(vg, font->handle);
+        const float cy = kBandTop + kBandHeight / 2.f, logoSize = 18.f;
+        nvgBeginPath(vg);
+        nvgRoundedRect(vg, 4.f, kBandTop, box.size.x - 8.f, kBandHeight, 5.f);
         nvgFillColor(vg, nvgRGB(255, 176, 59));
-        if (vertical) {
-            // The amber band of the header, turned on its side; logo, name and mark in dark on it.
-            const float cx = kStripWidth / 2.f, logoSize = 30.f, markSize = 22.f;
-            nvgBeginPath(vg);
-            nvgRoundedRect(vg, 3.f, 3.f, kStripWidth - 6.f, box.size.y - 6.f, 5.f);
-            nvgFillColor(vg, nvgRGB(255, 176, 59));
-            nvgFill(vg);
-            drawSvg(vg, *logo, cx - logoSize / 2.f, 12.f, logoSize / 64.f);
-            drawSvg(vg, *mark, cx - markSize / 2.f, box.size.y - markSize - 12.f, markSize / 64.f);
-            nvgFillColor(vg, nvgRGB(23, 24, 28));
-            nvgFontSize(vg, 30.f);
-            nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-            nvgTextLetterSpacing(vg, 2.f);
-            const float top = 12.f + logoSize + 10.f, bottom = box.size.y - markSize - 22.f;
-            nvgSave(vg);
-            nvgTranslate(vg, cx, (top + bottom) / 2.f);
-            nvgRotate(vg, -M_PI / 2.f);
-            nvgText(vg, 0, 1.f, name.c_str(), nullptr);
-            nvgRestore(vg);
-            return;
-        }
-        nvgFontSize(vg, 12.f);
-        float bounds[4];
-        const float textWidth = nvgTextBounds(vg, 0, 0, name.c_str(), nullptr, bounds);
-        const float icon = 16.f, gap = 5.f;
-        const float x = (box.size.x - icon - gap - textWidth) / 2;
-        drawSvg(vg, *logo, x, 3.f, icon / 64.f);
-        nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-        nvgText(vg, x + icon + gap, 11.5f, name.c_str(), nullptr);
-        const float markSize = 14.f;
-        drawSvg(vg, *mark, 6.f, box.size.y - markSize - 3.f, markSize / 64.f);
+        nvgFill(vg);
+        drawSvg(vg, *logo, 9.f, cy - logoSize / 2.f, logoSize / 64.f);
+        nvgFontFaceId(vg, font->handle);
+        nvgFillColor(vg, nvgRGB(23, 24, 28));
+        nvgFontSize(vg, 17.f);
+        nvgTextLetterSpacing(vg, 1.5f);
+        nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        nvgText(vg, box.size.x / 2.f, cy + 1.f, name.c_str(), nullptr);
+        nvgFontSize(vg, 9.f);
+        nvgTextLetterSpacing(vg, 0.5f);
+        nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
+        nvgText(vg, kindRight > 0.f ? kindRight : box.size.x - 10.f, cy + 0.5f, kind.c_str(), nullptr);
+        nvgTextLetterSpacing(vg, 0.f);
+        // Lockup 461.8 x 88 (res/brand/fourfold-lockup.svg), 12 px high, 4 px above the bottom.
+        const float h = 12.f, w = h * 461.8f / 88.f;
+        drawSvg(vg, *lockup, (box.size.x - w) / 2.f, box.size.y - h - 4.f, h / 88.f);
+    }
+};
+
+// Amber tab under outputs (VCV: an inverted background for output ports). Added before the
+// ports so they sit on it.
+struct OutputTab : rack::TransparentWidget {
+    void draw(const DrawArgs& args) override
+    {
+        nvgBeginPath(args.vg);
+        nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.f);
+        nvgFillColor(args.vg, nvgRGB(255, 176, 59));
+        nvgFill(args.vg);
     }
 };
