@@ -2,6 +2,8 @@
 
 ## 2.6.2
 
+- The plugin slug becomes `Fourfold` (a brand rather than a module name). Patches saved with
+  the `TetradSeq` plugin need their modules placed again.
 - The inspector field FOLW is renamed TRSP IN: it sets whether the TRANSP jack transposes the
   track, and was easy to mistake for the page follow (F button).
 

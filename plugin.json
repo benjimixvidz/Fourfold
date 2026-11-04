@@ -1,9 +1,9 @@
 {
-  "slug": "TetradSeq",
-  "name": "Tetrad Seq",
+  "slug": "Fourfold",
+  "name": "Fourfold",
   "version": "2.6.2",
   "license": "GPL-3.0-or-later",
-  "brand": "Tetrad",
+  "brand": "Fourfold",
   "author": "benji",
   "authorEmail": "",
   "authorUrl": "https://github.com/benjimixvidz",

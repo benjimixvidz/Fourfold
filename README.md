@@ -1,6 +1,7 @@
-# Tetrad Seq
+# Fourfold
 
-Four-track step sequencer for [VCV Rack 2](https://vcvrack.com), with a routing expander.
+[VCV Rack 2](https://vcvrack.com) plugin: Tetrad, a four-track step sequencer, and Tetrad Pipe,
+its routing expander.
 
 ![Tetrad and Tetrad Pipe in VCV Rack](docs/vcv-rack.png)
 
@@ -146,7 +147,7 @@ a C++17 compiler, `make` and `jq`.
 ```bash
 make RACK_DIR=/path/to/Rack-SDK          # plugin.so
 make RACK_DIR=/path/to/Rack-SDK test     # core unit tests
-make RACK_DIR=/path/to/Rack-SDK dist     # dist/TetradSeq-<version>-<arch>.vcvplugin
+make RACK_DIR=/path/to/Rack-SDK dist     # dist/Fourfold-<version>-<arch>.vcvplugin
 make RACK_DIR=/path/to/Rack-SDK install  # copies the package into the Rack user folder
 ```
 
