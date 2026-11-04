@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.5
+
+- Matte aluminium relief on both panels (faint gradient, recessed zones). The Pipe gets the
+  vertical name strip on its left edge with the Fourfold mark; Tetrad keeps its compact header,
+  as its 56 HP are fully used.
+
 ## 2.6.4
 
 - Each panel shows its module logo and name at the top centre and the Fourfold lockup at the

@@ -1,6 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="60.96mm" height="128.5mm" viewBox="0 0 60.96 128.5">
-  <rect x="0" y="0" width="60.96" height="128.5" fill="#17181C"/>
-  <rect x="0" y="0" width="60.96" height="7.5" fill="#1F2026"/>
-  <rect x="1.6" y="15.6" width="28.4" height="98.6" rx="1.2" fill="#1F2026"/>
-  <rect x="31.0" y="15.6" width="28.4" height="98.6" rx="1.2" fill="#1F2026"/>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A1B20"/><stop offset="1" stop-color="#15161A"/></linearGradient>
+  </defs>
+  <rect x="0" y="0" width="60.96" height="128.5" fill="url(#panel)"/>
+  <rect x="0" y="0" width="15.56" height="128.5" fill="#131418"/>
+  <rect x="15.56" y="0" width="0.3" height="128.5" fill="#000000" fill-opacity="0.5"/>
+  <rect x="15.86" y="0" width="0.3" height="128.5" fill="#FFFFFF" fill-opacity="0.05"/>
+  <rect x="17.16" y="15.60" width="20.60" height="98.60" rx="1.2" fill="#1D1E24"/>
+  <rect x="17.16" y="15.60" width="20.60" height="0.3" fill="#000000" fill-opacity="0.45"/>
+  <rect x="17.16" y="113.90" width="20.60" height="0.3" fill="#FFFFFF" fill-opacity="0.04"/>
+  <rect x="38.76" y="15.60" width="20.60" height="98.60" rx="1.2" fill="#1D1E24"/>
+  <rect x="38.76" y="15.60" width="20.60" height="0.3" fill="#000000" fill-opacity="0.45"/>
+  <rect x="38.76" y="113.90" width="20.60" height="0.3" fill="#FFFFFF" fill-opacity="0.04"/>
 </svg>

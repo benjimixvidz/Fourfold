@@ -176,7 +176,7 @@ const NVGcolor kLabel = nvgRGB(201, 206, 214);
 const NVGcolor kRoute = nvgRGB(255, 176, 59);   // brand amber
 
 // Panel layout (Rack pixels, 12 HP = 180 px wide): outputs 1-8 left, 9-16 right.
-constexpr float kLeftX = 26, kRightX = 116, kRowY = 64, kRowStep = 36;
+constexpr float kLeftX = 26 + kStripWidth, kRightX = 116 + kStripWidth - 12, kRowY = 64, kRowStep = 36;
 Vec jackPos(int i) { return Vec(i < 8 ? kLeftX : kRightX, kRowY + (i % 8) * kRowStep); }
 
 // Right-click menu of an output: signal, track and row.
@@ -253,7 +253,7 @@ struct StaticLabels : TransparentWidget {
         nvgFillColor(vg, kLabel);
         nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
         nvgFontSize(vg, 7.5f);
-        nvgText(vg, 90, 37, "RIGHT-CLICK AN OUTPUT TO ROUTE IT", nullptr);
+        nvgText(vg, (180 + kStripWidth) / 2.f, 37, "RIGHT-CLICK TO ROUTE", nullptr);
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
         nvgFontSize(vg, 8.f);
         for (int i = 0; i < pipe::kOutputs; ++i) {
@@ -279,8 +279,8 @@ struct TetradPipeWidget : ModuleWidget {
             port->index = i;
             addOutput(port);
         }
-        addChild(createLightCentered<SmallLight<GreenLight>>(Vec(160, 14), module, TetradPipe::LINK_LIGHT));
-        auto* branding = new Branding("res/brand/tetrad-pipe.svg", "TETRAD PIPE");
+        addChild(createLightCentered<SmallLight<GreenLight>>(Vec(168, 14), module, TetradPipe::LINK_LIGHT));
+        auto* branding = new Branding("res/brand/tetrad-pipe.svg", "PIPE", true);
         branding->box.size = box.size;
         addChild(branding);
         auto* routing = new RoutingLabels;

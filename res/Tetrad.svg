@@ -1,8 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="284.48mm" height="128.5mm" viewBox="0 0 284.48 128.5">
-  <rect x="0" y="0" width="284.48" height="128.5" fill="#17181C"/>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A1B20"/><stop offset="1" stop-color="#15161A"/></linearGradient>
+  </defs>
+  <rect x="0" y="0" width="284.48" height="128.5" fill="url(#panel)"/>
   <rect x="0" y="0" width="284.48" height="7.6" fill="#1F2026"/>
-  <rect x="2.0" y="8.1" width="78.6" height="98.6" rx="1.2" fill="#1F2026"/>
+  <rect x="2.00" y="8.10" width="78.60" height="98.60" rx="1.2" fill="#1D1E24"/>
+  <rect x="2.00" y="8.10" width="78.60" height="0.3" fill="#000000" fill-opacity="0.45"/>
+  <rect x="2.00" y="106.40" width="78.60" height="0.3" fill="#FFFFFF" fill-opacity="0.04"/>
   <rect x="81.3" y="8.1" width="201.2" height="98.6" rx="1.2" fill="#121317"/>
-  <rect x="2.0" y="107.4" width="54.0" height="19.8" rx="1.2" fill="#1F2026"/>
-  <rect x="58.2" y="107.4" width="224.3" height="19.8" rx="1.2" fill="#1F2026"/>
+  <rect x="2.00" y="107.40" width="54.00" height="19.80" rx="1.2" fill="#1D1E24"/>
+  <rect x="2.00" y="107.40" width="54.00" height="0.3" fill="#000000" fill-opacity="0.45"/>
+  <rect x="2.00" y="126.90" width="54.00" height="0.3" fill="#FFFFFF" fill-opacity="0.04"/>
+  <rect x="58.20" y="107.40" width="224.30" height="19.80" rx="1.2" fill="#1D1E24"/>
+  <rect x="58.20" y="107.40" width="224.30" height="0.3" fill="#000000" fill-opacity="0.45"/>
+  <rect x="58.20" y="126.90" width="224.30" height="0.3" fill="#FFFFFF" fill-opacity="0.04"/>
 </svg>
