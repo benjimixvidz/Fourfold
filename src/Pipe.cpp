@@ -176,7 +176,7 @@ const NVGcolor kLabel = nvgRGB(201, 206, 214);
 const NVGcolor kRoute = nvgRGB(255, 176, 59);   // brand amber
 
 // Panel layout (Rack pixels, 12 HP = 180 px wide): outputs 1-8 left, 9-16 right.
-constexpr float kLeftX = 26 + kStripWidth, kRightX = 116 + kStripWidth - 12, kRowY = 64, kRowStep = 36;
+constexpr float kLeftX = kStripWidth + 24, kRightX = kStripWidth + 24 + 67, kRowY = 64, kRowStep = 36;
 Vec jackPos(int i) { return Vec(i < 8 ? kLeftX : kRightX, kRowY + (i % 8) * kRowStep); }
 
 // Right-click menu of an output: signal, track and row.
@@ -258,7 +258,7 @@ struct StaticLabels : TransparentWidget {
         nvgFontSize(vg, 8.f);
         for (int i = 0; i < pipe::kOutputs; ++i) {
             const Vec p = jackPos(i);
-            nvgText(vg, p.x - 13, p.y, string::f("%d", i + 1).c_str(), nullptr);
+            nvgText(vg, p.x - 15, p.y, string::f("%d", i + 1).c_str(), nullptr);
         }
     }
 };

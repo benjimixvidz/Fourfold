@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.6
+
+- Pipe: the two jack columns are placed inside the width left of the name band, with room for
+  the numbers and labels.
+
 ## 2.6.5
 
 - Matte aluminium relief on both panels (faint gradient, recessed zones). The Pipe gets the
