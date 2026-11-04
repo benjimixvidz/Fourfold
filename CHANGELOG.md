@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.2
+
+- The inspector field FOLW is renamed TRSP IN: it sets whether the TRANSP jack transposes the
+  track, and was easy to mistake for the page follow (F button).
+
 ## 2.6.1
 
 - Large PLAY and RESET buttons with icons; PLAY is lit green while playing.

@@ -24,7 +24,7 @@ struct FieldDef {
 
 const FieldDef kFields[] = {
     {Ref::Track, kTrackMode, "MODE", kTrackY, 0, 1, "Mono: one note per step · Poly: up to 7 (also drum rows on the Pipe)"},
-    {Ref::Track, kTrackFollow, "FOLW", kTrackY, 1, 1, "Follow the TRANSP input"},
+    {Ref::Track, kTrackFollow, "TRSP IN", kTrackY, 1, 1, "The TRANSP jack transposes this track"},
     {Ref::Track, kTrackEnabled, "ON", kTrackY, 2, 1, "Mute: the track keeps running silently (key M)"},
     {Ref::Track, kTrackDivision, "DIV", kTrackY + kRowH, 0, 1, "Step length"},
     {Ref::Track, kTrackDirection, "DIR", kTrackY + kRowH, 1, 1, "Forward, backward, ping-pong, random, drunk"},

@@ -110,7 +110,7 @@ In the step menu and the module menu, applied to the loop of the selected track:
 | CLOCK | external clock at the selected PPQN (1, 2, 4, 8, 12, 24, 48; default 1). Unpatched: internal clock at the inspector tempo |
 | RESET | rising edge: back to step 1 |
 | RUN | high: play, low: pause; unpatched: follows PLAY |
-| TRANSP | 1 V/oct, rounded to semitones, added to the tracks with FOLW on |
+| TRANSP | 1 V/oct, rounded to semitones, added to the tracks with TRSP IN on |
 | T1 to T4 | track on / off |
 | V/OCT, GATE, VEL | per track: 0 V = C4; 10 V gates; velocity 0 to 10 V. Polyphonic in Poly mode (up to 7 channels) |
 

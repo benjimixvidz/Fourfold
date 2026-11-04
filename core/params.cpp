@@ -90,7 +90,7 @@ struct Table {
             at(kTrackDirection) = makeEnum("Direction", kDirections, 0);
             at(kTrackOctave) = makeInt("Octave", 0, 8, d.octave);
             at(kTrackTranspose) = makeInt("Transpose", -24, 24, 0, " st", true);
-            at(kTrackFollow) = makeEnum("Follow transpose", kOffOn, 1, ParamType::Bool);
+            at(kTrackFollow) = makeEnum("Transpose input", kOffOn, 1, ParamType::Bool);
             at(kTrackGate) = makeInt("Gate", 2, 200, d.gate, " %");
             at(kTrackSwing) = makeInt("Swing", 10, 90, 50, " %");
             at(kTrackVelocity) = makeInt("Velocity", 10, 200, 100, " %");
