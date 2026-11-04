@@ -29,7 +29,7 @@ its routing expander.
 
 ## Interface
 
-![Tetrad panel with four steps selected](docs/vcv-panel.png)
+![Tetrad panel](docs/vcv-panel.png)
 
 The left half is an **inspector**: transport, the selected track's settings, root and scale,
 the generator, and the fields of the selected steps. The right half holds the track and lane
