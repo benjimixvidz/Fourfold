@@ -22,7 +22,7 @@ inline constexpr int kNumPpqnChoices = int(sizeof(kPpqnChoices) / sizeof(int));
 struct Tetrad : Module {
     enum InputId { CLOCK_INPUT, RESET_INPUT, RUN_INPUT, TRANSPOSE_INPUT, NUM_INPUTS };
     enum OutputId { ENUMS(VOCT_OUTPUT, kNumTracks), ENUMS(GATE_OUTPUT, kNumTracks), ENUMS(VEL_OUTPUT, kNumTracks), NUM_OUTPUTS };
-    enum LightId { ENUMS(ON_LIGHT, kNumTracks), CLOCK_LIGHT, PLAY_LIGHT, NUM_LIGHTS };
+    enum LightId { ENUMS(ON_LIGHT, kNumTracks), CLOCK_LIGHT, NUM_LIGHTS };
     // Parameter ids 0..kNumParams-1 are the core table; these come after it.
     enum ExtraParam { TEMPO_PARAM = kNumParams, PLAY_PARAM, RESET_PARAM, NUM_PARAMS };
 

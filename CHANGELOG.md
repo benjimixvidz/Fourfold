@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.1
+
+- Large PLAY and RESET buttons with icons; PLAY is lit green while playing.
+- HELP button at the top right of the panel (replaces the small "?" of the inspector).
+
 ## 2.6.0
 
 First public release.

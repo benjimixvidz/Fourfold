@@ -14,14 +14,15 @@
 4. **Undo instead of confirmation.** Every edit, generator included, is one entry in Rack's
    history (Ctrl+Z / Ctrl+Shift+Z). Nothing asks for confirmation.
 5. **Help in context.** A help line describes what is under the pointer; `H` shows every
-   gesture and shortcut over the panel.
+   gesture and shortcut over the panel, as does the HELP button at the top right.
 
 ## Layout
 
-- **Inspector (left):** transport (PLAY, RESET, tempo, clock source, PPQN), track settings,
+- **Inspector (left):** transport (large PLAY and RESET buttons, tempo, clock source, PPQN),
+  track settings,
   root and scale, generator with its actions (NEW SEED, EUCLID with HITS and ROT, CLEAR),
   selection fields, help line.
-- **Grid (right):** track tabs (MONO, POLY, or MUTE in red), lane tabs, the 128-step overview
+- **Grid (right):** HELP button above it, track tabs (MONO, POLY, or MUTE in red), lane tabs, the 128-step overview
   (loop window, handles, visible page, playhead), the 16x8 grid, note names, markers for notes
   above or below the visible rows.
 - **Jacks:** one row at the bottom: clock, reset, run and transpose inputs, then the on switch

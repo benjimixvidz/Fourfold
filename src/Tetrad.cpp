@@ -52,7 +52,6 @@ Tetrad::Tetrad()
         playheadSteps[t].store(0);
     }
     configLight(CLOCK_LIGHT, "Clock");
-    configLight(PLAY_LIGHT, "Playing");
 
     for (int i = 0; i < kNumParams; ++i)
         cachedValues[i] = params[i].getValue();
@@ -139,7 +138,6 @@ void Tetrad::control(float sampleTime)
         lights[ON_LIGHT + t].setBrightness(params[trackParamIndex(t, kTrackEnabled)].getValue() > 0.5f);
     }
     lights[CLOCK_LIGHT].setBrightness(clockLight.process(sampleTime * kControlRate) ? 1.f : 0.f);
-    lights[PLAY_LIGHT].setBrightness(params[PLAY_PARAM].getValue() > 0.5f ? 1.f : 0.f);
 }
 
 void Tetrad::process(const ProcessArgs& args)

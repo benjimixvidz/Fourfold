@@ -69,10 +69,9 @@ int fieldAt(Vec p)
     return -1;
 }
 
-const math::Rect kTempoRect{{60, 2}, {92, 30}};
-const math::Rect kClockRect{{154, 2}, {72, 14}};
-const math::Rect kPpqnRect{{154, 18}, {72, 14}};
-const math::Rect kHelpRect{{206, 36}, {20, 14}};
+const math::Rect kTempoRect{{94, 2}, {78, 30}};
+const math::Rect kClockRect{{174, 2}, {52, 14}};
+const math::Rect kPpqnRect{{174, 18}, {52, 14}};
 
 enum Button { kNewSeed, kEuclid, kPulses, kRotation, kClear, kNumButtons };
 const math::Rect kButtonRects[kNumButtons] = {
@@ -146,7 +145,7 @@ void Inspector::drawLayer(const DrawArgs& args, int layer)
     const NVGcolor tc = kTrackColors[t];
     fillRect(vg, {{0, 0}, box.size}, kScreen, 3.f);
 
-    // Transport: PLAY and RESET are Rack widgets placed over the left corner.
+    // Transport: PLAY and RESET are Rack widgets placed over the left corner (kPlayRect, kResetRect).
     const bool internal = !module || !module->externalClock.load(std::memory_order_relaxed);
     const double bpm = !module ? kDefaultTempo
                        : internal ? double(module->params[Tetrad::TEMPO_PARAM].getValue())
@@ -156,18 +155,16 @@ void Inspector::drawLayer(const DrawArgs& args, int layer)
     text(vg, kTempoRect.pos.x + 2, kTempoRect.pos.y + 16, bpm > 0 ? string::f("%.1f", bpm) : "--.-", kInk, 22.f);
     text(vg, kTempoRect.pos.x + kTempoRect.size.x - 2, kTempoRect.pos.y + 25, "BPM", kTextDim, 8.f,
          NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
-    centered(vg, kClockRect, internal ? "INT CLOCK" : "EXT CLOCK", internal ? kInk : tc, 9.f);
+    fillRect(vg, kClockRect, kField, 2.f);
+    text(vg, kClockRect.pos.x + kClockRect.size.x - 3, kClockRect.pos.y + kClockRect.size.y / 2 + 0.5f,
+         internal ? "INT CLK" : "EXT CLK", internal ? kInk : tc, 9.f, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
     fillRect(vg, kPpqnRect, hoverField == kHoverPpqn ? kButtonHover : kButton, 2.f);
     centered(vg, kPpqnRect, string::f("%d PPQN", kPpqnChoices[module ? module->ppqnIndex.load() : 0]), kText, 9.f);
-    text(vg, 16, 30, "PLAY", kTextDim, 7.f, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-    text(vg, 44, 30, "RST", kTextDim, 7.f, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 
     const bool on = trackValue(module, t, kTrackEnabled) != 0;
     fillRect(vg, {{2, 36}, {kW - 4, 14}}, nvgTransRGBAf(tc, 0.25f), 2.f);
     fillRect(vg, {{2, 36}, {4, 14}}, tc, 1.f);
     text(vg, 10, 43, string::f("TRACK %d%s", t + 1, on ? "" : "  · MUTED"), on ? kInk : kTextDim, 10.f);
-    fillRect(vg, kHelpRect, ui->help ? kText : kButton, 2.f);
-    centered(vg, kHelpRect, "?", ui->help ? kTextDark : kText, 10.f);
 
     text(vg, 6, 152, "GENERATOR", kTextDim, 8.f);
     const int selected = int(ui->selection.count());
@@ -413,8 +410,6 @@ void Inspector::onButton(const ButtonEvent& e)
         }
     } else if (kPpqnRect.contains(p)) {
         ppqnMenu();
-    } else if (kHelpRect.contains(p)) {
-        ui->help = !ui->help;
     } else {
         const int b = buttonAt(p);
         if (b == kPulses || b == kRotation)
@@ -508,8 +503,6 @@ void Inspector::onHover(const HoverEvent& e)
         ui->hint = "Resolution of the CLOCK input: click to choose";
     } else if (hoverButton >= 0) {
         ui->hint = kButtonHints[hoverButton];
-    } else if (kHelpRect.contains(e.pos)) {
-        ui->hint = "Show every gesture and shortcut (key H)";
     }
     OpaqueWidget::onHover(e);
 }

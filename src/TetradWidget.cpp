@@ -30,7 +30,7 @@ struct Labels : TransparentWidget {
     }
 };
 
-// Every gesture and shortcut, over the whole panel (H or the "?" button; click to close).
+// Every gesture and shortcut, over the whole panel (key H or the HELP button; click to close).
 struct HelpOverlay : OpaqueWidget {
     UiState* ui = nullptr;
 
@@ -103,6 +103,93 @@ struct HelpOverlay : OpaqueWidget {
     }
 };
 
+// PLAY (latch) and RESET (momentary) drawn as large buttons. They stay Rack parameters, so
+// tooltips, MIDI mapping and undo work as for any switch.
+struct TransportButton : app::Switch {
+    UiState* ui = nullptr;
+    bool isPlay = false;
+    bool hovered = false;
+
+    TransportButton() { box.size = kPlayRect.size; }
+
+    void onEnter(const EnterEvent& e) override
+    {
+        hovered = true;
+        ui->hint = isPlay ? "Play / stop (key Space); stop goes back to step 1" : "Back to step 1";
+        Switch::onEnter(e);
+    }
+
+    void onLeave(const LeaveEvent& e) override
+    {
+        hovered = false;
+        Switch::onLeave(e);
+    }
+
+    void drawLayer(const DrawArgs& args, int layer) override
+    {
+        if (layer != 1)
+            return Switch::drawLayer(args, layer);
+        NVGcontext* vg = args.vg;
+        ParamQuantity* q = getParamQuantity();
+        const bool on = q ? q->getValue() > 0.5f : isPlay;
+        const NVGcolor fill = on ? (isPlay ? kPlayOn : kButtonOn) : hovered ? kButtonHover : kButton;
+        const NVGcolor ink = on ? kTextDark : kText;
+        fillRect(vg, {{0, 0}, box.size}, fill, 3.f);
+        // Icon: a triangle for PLAY, a bar and a triangle pointing left for RESET.
+        const float cx = box.size.x / 2, cy = 11;
+        nvgBeginPath(vg);
+        if (isPlay) {
+            nvgMoveTo(vg, cx - 5, cy - 6);
+            nvgLineTo(vg, cx + 6, cy);
+            nvgLineTo(vg, cx - 5, cy + 6);
+        } else {
+            nvgRect(vg, cx - 7, cy - 6, 2, 12);
+            nvgMoveTo(vg, cx + 6, cy - 6);
+            nvgLineTo(vg, cx - 4, cy);
+            nvgLineTo(vg, cx + 6, cy + 6);
+        }
+        nvgClosePath(vg);
+        nvgFillColor(vg, on || !isPlay ? ink : kPlayOn);
+        nvgFill(vg);
+        setFont(vg);
+        text(vg, cx, 24, isPlay ? "PLAY" : "RESET", ink, 8.f, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+    }
+};
+
+// HELP, at the top right of the panel: every gesture and shortcut (also key H).
+struct HelpButton : OpaqueWidget {
+    UiState* ui = nullptr;
+    bool hovered = false;
+
+    void drawLayer(const DrawArgs& args, int layer) override
+    {
+        if (layer != 1)
+            return;
+        NVGcontext* vg = args.vg;
+        fillRect(vg, {{0, 0}, box.size}, ui->help ? kText : hovered ? kButtonHover : kButton, 3.f);
+        if (!ui->help)
+            strokeRect(vg, {{0, 0}, box.size}, kTextDim, 1.f, 3.f);
+        setFont(vg);
+        centered(vg, {{0, 0}, box.size}, "? HELP", ui->help ? kTextDark : kInk, 10.f);
+    }
+
+    void onButton(const ButtonEvent& e) override
+    {
+        if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT) {
+            ui->help = !ui->help;
+            e.consume(this);
+        }
+    }
+
+    void onEnter(const EnterEvent& e) override
+    {
+        hovered = true;
+        ui->hint = "Every gesture and shortcut (key H)";
+    }
+
+    void onLeave(const LeaveEvent& e) override { hovered = false; }
+};
+
 } // namespace
 
 struct TetradWidget : ModuleWidget {
@@ -128,12 +215,17 @@ struct TetradWidget : ModuleWidget {
         grid->box.pos = Vec(244, 26);
         addChild(grid);
 
-        // Transport, top-left of the inspector.
-        addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<GreenLight>>>(Vec(8 + 16, 26 + 14), module,
-                                                                                       Tetrad::PLAY_PARAM,
-                                                                                       Tetrad::PLAY_LIGHT));
-        addParam(createParamCentered<VCVButton>(Vec(8 + 44, 26 + 14), module, Tetrad::RESET_PARAM));
-        addChild(createLightCentered<SmallLight<GreenLight>>(Vec(8 + 30, 26 + 4), module, Tetrad::CLOCK_LIGHT));
+        const Vec origin = inspector->box.pos;
+        for (int i = 0; i < 2; ++i) {
+            const bool play = i == 0;
+            auto* b = createParam<TransportButton>(origin.plus((play ? kPlayRect : kResetRect).pos), module,
+                                                   play ? Tetrad::PLAY_PARAM : Tetrad::RESET_PARAM);
+            b->ui = &ui;
+            b->isPlay = play;
+            b->momentary = !play;
+            addParam(b);
+        }
+        addChild(createLightCentered<SmallLight<GreenLight>>(origin.plus(kClockLightPos), module, Tetrad::CLOCK_LIGHT));
 
         auto* labels = new Labels;
         labels->box.size = box.size;
@@ -157,6 +249,12 @@ struct TetradWidget : ModuleWidget {
             }
         }
         addChild(labels);
+
+        auto* helpButton = new HelpButton;
+        helpButton->ui = &ui;
+        helpButton->box.pos = Vec(grid->box.pos.x + grid->box.size.x - 60, 3);
+        helpButton->box.size = Vec(60, 19);
+        addChild(helpButton);
 
         auto* help = new HelpOverlay;
         help->ui = &ui;

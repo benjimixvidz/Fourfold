@@ -34,6 +34,7 @@ const NVGcolor kTextOff = nvgRGB(60, 66, 76);
 const NVGcolor kInk = nvgRGB(214, 236, 240);
 const NVGcolor kSelect = nvgRGB(250, 250, 250);
 const NVGcolor kMuted = nvgRGB(240, 112, 112);
+const NVGcolor kPlayOn = nvgRGB(72, 196, 116);
 
 inline void fillRect(NVGcontext* vg, const math::Rect& r, NVGcolor c, float radius = 2.f)
 {

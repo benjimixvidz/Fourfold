@@ -32,7 +32,8 @@ The left half is an **inspector**: transport, the selected track's settings, roo
 the generator, and the fields of the selected steps. The right half holds the track and lane
 tabs, an overview of the 128 steps with the loop handles, the 16x8 grid and the note names of
 the rows. A help line at the bottom of the inspector describes what is under the pointer, and
-`H` shows every gesture and shortcut.
+the **HELP** button (top right, or key `H`) shows every gesture and shortcut. PLAY and RESET
+are the two large buttons at the top left of the inspector.
 
 ### Mouse
 
@@ -98,14 +99,14 @@ In the step menu and the module menu, applied to the loop of the selected track:
 | Euclid | spreads HITS pulses over the loop, rotated by ROT, on the bottom visible row |
 | Clear | turns every step of the loop off |
 
-![Help overlay (key H)](docs/vcv-help.png)
+![Help overlay (HELP button or key H)](docs/vcv-help.png)
 
 ## Jacks and clock
 
 | Jack or control | Role |
 |---|---|
-| PLAY | play / stop (on by default). Stop goes back to step 1 |
-| RST | back to step 1 |
+| PLAY | play / stop (lit green while playing, on by default). Stop goes back to step 1 |
+| RESET | back to step 1 |
 | CLOCK | external clock at the selected PPQN (1, 2, 4, 8, 12, 24, 48; default 1). Unpatched: internal clock at the inspector tempo |
 | RESET | rising edge: back to step 1 |
 | RUN | high: play, low: pause; unpatched: follows PLAY |

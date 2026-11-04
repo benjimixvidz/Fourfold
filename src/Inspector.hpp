@@ -3,6 +3,11 @@
 
 namespace ui_tetrad {
 
+// Transport widgets that TetradWidget places over the inspector (inspector coordinates).
+const math::Rect kPlayRect{{2, 2}, {44, 30}};
+const math::Rect kResetRect{{48, 2}, {44, 30}};
+const Vec kClockLightPos{180, 9};
+
 // Left half of Tetrad: transport, track settings, scale, generator and the selected steps. Every
 // value is edited where it is shown: drag vertically (Ctrl: fine), double-click for the default,
 // click a list or right-click for the values or a typed entry.
