@@ -4,6 +4,7 @@
 // A Poly track becomes a drum track this way: each grid row (scale degree 0..7) is a lane with
 // its own gate, trigger and velocity.
 
+#include "branding.hpp"
 #include "pipe.hpp"
 #include "plugin.hpp"
 
@@ -251,10 +252,6 @@ struct StaticLabels : TransparentWidget {
         nvgFontFaceId(vg, font->handle);
         nvgFillColor(vg, kLabel);
         nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-        nvgFontSize(vg, 12.f);
-        nvgFillColor(vg, kRoute);
-        nvgText(vg, 90, 14, "PIPE", nullptr);
-        nvgFillColor(vg, kLabel);
         nvgFontSize(vg, 7.5f);
         nvgText(vg, 90, 37, "RIGHT-CLICK AN OUTPUT TO ROUTE IT", nullptr);
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
@@ -283,6 +280,9 @@ struct TetradPipeWidget : ModuleWidget {
             addOutput(port);
         }
         addChild(createLightCentered<SmallLight<GreenLight>>(Vec(160, 14), module, TetradPipe::LINK_LIGHT));
+        auto* branding = new Branding("res/brand/tetrad-pipe.svg", "TETRAD PIPE");
+        branding->box.size = box.size;
+        addChild(branding);
         auto* routing = new RoutingLabels;
         routing->module = module;
         routing->box.size = box.size;

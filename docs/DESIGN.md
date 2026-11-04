@@ -31,7 +31,8 @@
 ## Brand
 
 Palette: background #17181C, amber #FFB03B (brand, track 1, active states), grey #4A4C56 (pads
-and neutral elements). Icons in `docs/brand/`, also drawn in the panel headers.
+and neutral elements). Icons in `docs/brand/`. Each panel shows its module logo and name at the top centre and the
+Fourfold lockup at the bottom left (`res/brand/`, lettering lightened for the dark panel).
 
 ## Readability
 

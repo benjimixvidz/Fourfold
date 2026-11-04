@@ -3,6 +3,7 @@
 // Ctrl+C...) are only taken when there is a selection to act on.
 
 #include "GridPanel.hpp"
+#include "branding.hpp"
 #include "Inspector.hpp"
 
 namespace ui_tetrad {
@@ -230,7 +231,6 @@ struct TetradWidget : ModuleWidget {
 
         auto* labels = new Labels;
         labels->box.size = box.size;
-        labels->add(Vec(420, 12), "TETRAD", 12.f, kBrand);
         constexpr float jackY = 352, labelY = 330;
         const char* inputNames[] = {"CLOCK", "RESET", "RUN", "TRANSP"};
         for (int i = 0; i < Tetrad::NUM_INPUTS; ++i) {
@@ -250,6 +250,9 @@ struct TetradWidget : ModuleWidget {
             }
         }
         addChild(labels);
+        auto* branding = new Branding("res/brand/tetrad.svg", "TETRAD");
+        branding->box.size = box.size;
+        addChild(branding);
 
         auto* helpButton = new HelpButton;
         helpButton->ui = &ui;

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.4
+
+- Each panel shows its module logo and name at the top centre and the Fourfold lockup at the
+  bottom left.
+
 ## 2.6.3
 
 - Brand colours (amber #FFB03B on #17181C, grey #4A4C56) and icons on the Tetrad and Pipe panels;
