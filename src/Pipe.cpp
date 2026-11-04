@@ -239,7 +239,7 @@ struct RoutingLabels : TransparentWidget {
             return;
         NVGcontext* vg = args.vg;
         nvgFontFaceId(vg, font->handle);
-        constexpr float kTagW = 12.f, kTagH = 10.f, kGap = 3.f, kSize = 8.5f;
+        constexpr float kTagW = 13.f, kTagH = 11.f, kGap = 3.f, kSize = 9.5f;
         for (int i = 0; i < pipe::kOutputs; ++i) {
             const pipe::Route r = module ? module->routes[i] : pipe::defaultRoute(i);
             const Vec p = jackPos(i);
@@ -257,7 +257,7 @@ struct RoutingLabels : TransparentWidget {
                 nvgRoundedRect(vg, x, y - kTagH / 2.f, kTagW, kTagH, 2.f);
                 nvgFillColor(vg, c);
                 nvgFill(vg);
-                nvgFontSize(vg, 7.5f);
+                nvgFontSize(vg, 8.f);
                 nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
                 nvgFillColor(vg, kTagInk);
                 nvgText(vg, x + kTagW / 2.f, y + 0.5f, string::f("%d", r.track + 1).c_str(), nullptr);
@@ -283,12 +283,12 @@ struct StaticLabels : TransparentWidget {
         nvgFontFaceId(vg, font->handle);
         nvgFillColor(vg, kLabel);
         nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-        nvgFontSize(vg, 7.5f);
+        nvgFontSize(vg, 10.f);
         nvgText(vg, (180 + kStripWidth) / 2.f, 37, "RIGHT-CLICK TO ROUTE", nullptr);
         // Output numbers, small, at the top left of each jack.
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
         nvgFillColor(vg, kNumber);
-        nvgFontSize(vg, 7.f);
+        nvgFontSize(vg, 8.f);
         for (int i = 0; i < pipe::kOutputs; ++i) {
             const Vec p = jackPos(i);
             nvgText(vg, p.x - 15, p.y - 9, string::f("%d", i + 1).c_str(), nullptr);
