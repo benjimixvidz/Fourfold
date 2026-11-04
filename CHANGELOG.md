@@ -6,6 +6,9 @@
   grows to 59 HP; the header goes, the inspector and the grid reach the top, and the grid rows,
   overview and tabs are taller. HELP sits under the inspector. Patches place the Pipe 3 HP
   further right.
+- Pipe: each output shows its route under the jack, as a tag with the track number on the
+  track's colour (the colours of Tetrad's track tabs) and the signal (PITCH, VEL, GATE, TRIG,
+  R3 GATE...). Nothing is cut any more; the output number sits small at the top left.
 
 ## 2.6.6
 

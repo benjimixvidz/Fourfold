@@ -17,17 +17,18 @@ const char* const kSignalNames[kSignalCount] = {
     "Row gate",  "Row trigger",         "Row velocity",    "Clock",       "Reset",
 };
 
+// The short name leaves the track out: the panel shows it as a coloured tag.
 std::string routeName(const Route& r, bool shortName)
 {
     const int t = r.track + 1, row = r.row + 1;
     switch (r.signal) {
-    case kPitch: return string::f(shortName ? "T%d PIT" : "Track %d pitch", t);
-    case kVelocity: return string::f(shortName ? "T%d VEL" : "Track %d velocity", t);
-    case kGate: return string::f(shortName ? "T%d GATE" : "Track %d gate", t);
-    case kTrigger: return string::f(shortName ? "T%d TRIG" : "Track %d trigger", t);
-    case kRowGate: return string::f(shortName ? "T%dR%d G" : "Track %d row %d gate", t, row);
-    case kRowTrigger: return string::f(shortName ? "T%dR%d T" : "Track %d row %d trigger", t, row);
-    case kRowVelocity: return string::f(shortName ? "T%dR%d V" : "Track %d row %d velocity", t, row);
+    case kPitch: return shortName ? "PITCH" : string::f("Track %d pitch", t);
+    case kVelocity: return shortName ? "VEL" : string::f("Track %d velocity", t);
+    case kGate: return shortName ? "GATE" : string::f("Track %d gate", t);
+    case kTrigger: return shortName ? "TRIG" : string::f("Track %d trigger", t);
+    case kRowGate: return string::f(shortName ? "R%d GATE" : "Track %d row %d gate", shortName ? row : t, row);
+    case kRowTrigger: return string::f(shortName ? "R%d TRIG" : "Track %d row %d trigger", shortName ? row : t, row);
+    case kRowVelocity: return string::f(shortName ? "R%d VEL" : "Track %d row %d velocity", shortName ? row : t, row);
     case kClock: return shortName ? "CLOCK" : "Clock";
     case kReset: return shortName ? "RESET" : "Reset";
     default: return shortName ? "-" : "None";
@@ -173,10 +174,16 @@ struct TetradPipe : Module {
 namespace {
 
 const NVGcolor kLabel = nvgRGB(201, 206, 214);
-const NVGcolor kRoute = nvgRGB(255, 176, 59);   // brand amber
+const NVGcolor kNumber = nvgRGB(140, 142, 152);
+const NVGcolor kTagInk = nvgRGB(23, 24, 28);
+// Track colours, the same as Tetrad's track tabs (ui.hpp).
+const NVGcolor kTrack[pipe::kTracks] = {nvgRGB(255, 176, 59), nvgRGB(46, 196, 182), nvgRGB(170, 120, 240),
+                                       nvgRGB(241, 91, 181)};
 
-// Panel layout (Rack pixels, 12 HP = 180 px wide): outputs 1-8 left, 9-16 right.
-constexpr float kLeftX = kStripWidth + 24, kRightX = kStripWidth + 24 + 67, kRowY = 64, kRowStep = 36;
+// Panel layout (Rack pixels, 12 HP = 180 px wide): two columns of 67 px right of the strip,
+// outputs 1-8 left, 9-16 right. Each cell: the number at the top left, the jack, and under it
+// the route as a track tag (its number on the track colour) and the signal.
+constexpr float kLeftX = kStripWidth + 34, kRightX = kLeftX + 67, kRowY = 64, kRowStep = 40;
 Vec jackPos(int i) { return Vec(i < 8 ? kLeftX : kRightX, kRowY + (i % 8) * kRowStep); }
 
 // Right-click menu of an output: signal, track and row.
@@ -218,7 +225,8 @@ struct RoutedPort : PJ301MPort {
     }
 };
 
-// Routing labels next to each jack, so the panel always shows where things go.
+// Route under each jack, so the panel always shows where things go: a tag with the track
+// number on the track's colour, then the signal; clock and reset have no tag.
 struct RoutingLabels : TransparentWidget {
     TetradPipe* module = nullptr;
 
@@ -231,13 +239,36 @@ struct RoutingLabels : TransparentWidget {
             return;
         NVGcontext* vg = args.vg;
         nvgFontFaceId(vg, font->handle);
-        nvgFontSize(vg, 8.5f);
-        nvgFillColor(vg, kRoute);
-        nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+        constexpr float kTagW = 12.f, kTagH = 10.f, kGap = 3.f, kSize = 8.5f;
         for (int i = 0; i < pipe::kOutputs; ++i) {
             const pipe::Route r = module ? module->routes[i] : pipe::defaultRoute(i);
             const Vec p = jackPos(i);
-            nvgText(vg, p.x + 15, p.y, pipe::routeName(r, true).c_str(), nullptr);
+            const float y = p.y + 20.f;
+            const std::string name = pipe::routeName(r, true);
+            const bool tagged = pipe::usesTrack(r.signal);
+            nvgFontSize(vg, kSize);
+            nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+            float bounds[4];
+            const float textW = nvgTextBounds(vg, 0, 0, name.c_str(), nullptr, bounds);
+            float x = p.x - (textW + (tagged ? kTagW + kGap : 0.f)) / 2.f;
+            if (tagged) {
+                const NVGcolor c = kTrack[r.track];
+                nvgBeginPath(vg);
+                nvgRoundedRect(vg, x, y - kTagH / 2.f, kTagW, kTagH, 2.f);
+                nvgFillColor(vg, c);
+                nvgFill(vg);
+                nvgFontSize(vg, 7.5f);
+                nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+                nvgFillColor(vg, kTagInk);
+                nvgText(vg, x + kTagW / 2.f, y + 0.5f, string::f("%d", r.track + 1).c_str(), nullptr);
+                nvgFontSize(vg, kSize);
+                nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+                nvgFillColor(vg, c);
+                x += kTagW + kGap;
+            } else {
+                nvgFillColor(vg, kLabel);
+            }
+            nvgText(vg, x, y, name.c_str(), nullptr);
         }
     }
 };
@@ -254,11 +285,13 @@ struct StaticLabels : TransparentWidget {
         nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
         nvgFontSize(vg, 7.5f);
         nvgText(vg, (180 + kStripWidth) / 2.f, 37, "RIGHT-CLICK TO ROUTE", nullptr);
+        // Output numbers, small, at the top left of each jack.
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
-        nvgFontSize(vg, 8.f);
+        nvgFillColor(vg, kNumber);
+        nvgFontSize(vg, 7.f);
         for (int i = 0; i < pipe::kOutputs; ++i) {
             const Vec p = jackPos(i);
-            nvgText(vg, p.x - 15, p.y, string::f("%d", i + 1).c_str(), nullptr);
+            nvgText(vg, p.x - 15, p.y - 9, string::f("%d", i + 1).c_str(), nullptr);
         }
     }
 };
