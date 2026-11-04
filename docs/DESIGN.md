@@ -28,6 +28,11 @@
 - **Jacks:** one row at the bottom: clock, reset, run and transpose inputs, then the on switch
   and the three outputs of each track.
 
+## Brand
+
+Palette: background #17181C, amber #FFB03B (brand, track 1, active states), grey #4A4C56 (pads
+and neutral elements). Icons in `docs/brand/`, also drawn in the panel headers.
+
 ## Readability
 
 - Text contrast is at least 4.5:1 and state contrast at least 3:1 against the dark

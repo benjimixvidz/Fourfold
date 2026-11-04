@@ -1,5 +1,7 @@
 # Fourfold
 
+<img src="docs/brand/fourfold.svg" width="48" alt="Fourfold"> <img src="docs/brand/tetrad.svg" width="48" alt="Tetrad"> <img src="docs/brand/tetrad-pipe.svg" width="48" alt="Tetrad Pipe">
+
 [VCV Rack 2](https://vcvrack.com) plugin: Tetrad, a four-track step sequencer, and Tetrad Pipe,
 its routing expander.
 

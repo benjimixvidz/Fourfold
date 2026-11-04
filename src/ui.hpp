@@ -15,26 +15,28 @@ namespace ui_tetrad {
 using namespace rack;
 using namespace tetrad;
 
+// Brand palette (docs/brand): background #17181C, amber #FFB03B, grey #4A4C56.
 // Text >= 4.5:1 and state >= 3:1 against the dark backgrounds (WCAG 1.4.3 / 1.4.11).
-const NVGcolor kTrackColors[kNumTracks] = {nvgRGB(46, 196, 182), nvgRGB(244, 162, 89), nvgRGB(170, 120, 240),
-                                           nvgRGB(241, 91, 181)};
-const NVGcolor kScreen = nvgRGB(8, 10, 13);
-const NVGcolor kField = nvgRGB(20, 23, 28);
-const NVGcolor kPadOff = nvgRGB(44, 48, 57);
-const NVGcolor kPadOutside = nvgRGB(28, 31, 37);
-const NVGcolor kPadRoot = nvgRGB(66, 72, 88);
-const NVGcolor kPlayhead = nvgRGB(96, 104, 120);
-const NVGcolor kButton = nvgRGB(42, 46, 54);
-const NVGcolor kButtonHover = nvgRGB(58, 63, 74);
-const NVGcolor kButtonOn = nvgRGB(96, 104, 122);
-const NVGcolor kText = nvgRGB(214, 220, 228);
-const NVGcolor kTextDark = nvgRGB(14, 15, 18);
-const NVGcolor kTextDim = nvgRGB(128, 136, 150);
-const NVGcolor kTextOff = nvgRGB(60, 66, 76);
-const NVGcolor kInk = nvgRGB(214, 236, 240);
+const NVGcolor kBrand = nvgRGB(255, 176, 59);
+const NVGcolor kTrackColors[kNumTracks] = {kBrand, nvgRGB(46, 196, 182), nvgRGB(170, 120, 240), nvgRGB(241, 91, 181)};
+const NVGcolor kScreen = nvgRGB(12, 13, 16);
+const NVGcolor kField = nvgRGB(27, 28, 33);
+const NVGcolor kPadOff = nvgRGB(74, 76, 86);
+const NVGcolor kPadOutside = nvgRGB(40, 41, 47);
+const NVGcolor kPadRoot = nvgRGB(98, 101, 113);
+const NVGcolor kPlayhead = nvgRGB(132, 135, 148);
+const NVGcolor kButton = nvgRGB(39, 40, 46);
+const NVGcolor kButtonHover = nvgRGB(58, 60, 68);
+const NVGcolor kButtonOn = kBrand;
+const NVGcolor kText = nvgRGB(222, 222, 218);
+const NVGcolor kTextDark = nvgRGB(23, 24, 28);
+const NVGcolor kTextDim = nvgRGB(140, 142, 152);
+const NVGcolor kTextOff = nvgRGB(70, 72, 82);
+const NVGcolor kInk = nvgRGB(240, 236, 228);
 const NVGcolor kSelect = nvgRGB(250, 250, 250);
 const NVGcolor kMuted = nvgRGB(240, 112, 112);
-const NVGcolor kPlayOn = nvgRGB(72, 196, 116);
+const NVGcolor kPlayOn = kBrand;
+const NVGcolor kOverviewLines = nvgRGB(74, 76, 86);
 
 inline void fillRect(NVGcontext* vg, const math::Rect& r, NVGcolor c, float radius = 2.f)
 {

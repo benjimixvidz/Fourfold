@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.3
+
+- Brand colours (amber #FFB03B on #17181C, grey #4A4C56) and icons on the Tetrad and Pipe panels;
+  track 1 and active states use the amber.
+
 ## 2.6.2
 
 - The plugin slug becomes `Fourfold` (a brand rather than a module name). Patches saved with

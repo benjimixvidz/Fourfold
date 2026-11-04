@@ -172,7 +172,7 @@ struct TetradPipe : Module {
 namespace {
 
 const NVGcolor kLabel = nvgRGB(201, 206, 214);
-const NVGcolor kRoute = nvgRGB(46, 196, 182);
+const NVGcolor kRoute = nvgRGB(255, 176, 59);   // brand amber
 
 // Panel layout (Rack pixels, 12 HP = 180 px wide): outputs 1-8 left, 9-16 right.
 constexpr float kLeftX = 26, kRightX = 116, kRowY = 64, kRowStep = 36;
@@ -252,7 +252,9 @@ struct StaticLabels : TransparentWidget {
         nvgFillColor(vg, kLabel);
         nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
         nvgFontSize(vg, 12.f);
+        nvgFillColor(vg, kRoute);
         nvgText(vg, 90, 14, "PIPE", nullptr);
+        nvgFillColor(vg, kLabel);
         nvgFontSize(vg, 7.5f);
         nvgText(vg, 90, 37, "RIGHT-CLICK AN OUTPUT TO ROUTE IT", nullptr);
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);

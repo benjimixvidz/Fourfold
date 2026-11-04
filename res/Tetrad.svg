@@ -1,8 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="284.48mm" height="128.5mm" viewBox="0 0 284.48 128.5">
-  <rect x="0" y="0" width="284.48" height="128.5" fill="#1b1d22"/>
-  <rect x="0" y="0" width="284.48" height="7.6" fill="#24272e"/>
-  <rect x="2.0" y="8.1" width="78.6" height="98.6" rx="1.2" fill="#24272e"/>
-  <rect x="81.3" y="8.1" width="201.2" height="98.6" rx="1.2" fill="#16181d"/>
-  <rect x="2.0" y="107.4" width="54.0" height="19.8" rx="1.2" fill="#24272e"/>
-  <rect x="58.2" y="107.4" width="224.3" height="19.8" rx="1.2" fill="#24272e"/>
+  <rect x="0" y="0" width="284.48" height="128.5" fill="#17181C"/>
+  <rect x="0" y="0" width="284.48" height="7.6" fill="#1F2026"/>
+  <g transform="translate(2.00 0.60) scale(0.1000)">
+    <rect width="64" height="64" rx="14" fill="#17181C"/>
+    <rect x="7.5" y="7.5" width="10" height="10" rx="2.5" fill="#FFB03B"/>
+    <rect x="20.5" y="7.5" width="10" height="10" rx="2.5" fill="#4A4C56"/>
+    <rect x="33.5" y="7.5" width="10" height="10" rx="2.5" fill="#FFB03B"/>
+    <rect x="46.5" y="7.5" width="10" height="10" rx="2.5" fill="#4A4C56"/>
+    <rect x="7.5" y="20.5" width="10" height="10" rx="2.5" fill="#FFB03B"/>
+    <rect x="20.5" y="20.5" width="10" height="10" rx="2.5" fill="#4A4C56"/>
+    <rect x="33.5" y="20.5" width="10" height="10" rx="2.5" fill="#FFB03B"/>
+    <rect x="46.5" y="20.5" width="10" height="10" rx="2.5" fill="#4A4C56"/>
+    <rect x="7.5" y="33.5" width="10" height="10" rx="2.5" fill="#FFB03B"/>
+    <rect x="20.5" y="33.5" width="10" height="10" rx="2.5" fill="#FFB03B"/>
+    <rect x="33.5" y="33.5" width="10" height="10" rx="2.5" fill="#FFB03B"/>
+    <rect x="46.5" y="33.5" width="10" height="10" rx="2.5" fill="#FFB03B"/>
+    <rect x="7.5" y="46.5" width="10" height="10" rx="2.5" fill="#4A4C56"/>
+    <rect x="20.5" y="46.5" width="10" height="10" rx="2.5" fill="#4A4C56"/>
+    <rect x="33.5" y="46.5" width="10" height="10" rx="2.5" fill="#FFB03B"/>
+    <rect x="46.5" y="46.5" width="10" height="10" rx="2.5" fill="#4A4C56"/>
+  </g>
+  <rect x="2.0" y="8.1" width="78.6" height="98.6" rx="1.2" fill="#1F2026"/>
+  <rect x="81.3" y="8.1" width="201.2" height="98.6" rx="1.2" fill="#121317"/>
+  <rect x="2.0" y="107.4" width="54.0" height="19.8" rx="1.2" fill="#1F2026"/>
+  <rect x="58.2" y="107.4" width="224.3" height="19.8" rx="1.2" fill="#1F2026"/>
 </svg>

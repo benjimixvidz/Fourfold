@@ -71,9 +71,9 @@ void GridPanel::drawLayer(const DrawArgs& args, int layer)
         const math::Rect r = laneTab(i);
         const bool sel = i == ui->view.lane;
         fillRect(vg, r, sel ? kButtonOn : (hoverLane == i ? kButtonHover : kButton));
-        centered(vg, r, kLaneNames[i], kText, 10.f);
+        centered(vg, r, kLaneNames[i], sel ? kTextDark : kText, 10.f);
         if (sel)
-            fillRect(vg, {{r.pos.x + 4, r.pos.y + r.size.y - 3}, {r.size.x - 8, 2}}, kText, 1.f);
+            fillRect(vg, {{r.pos.x + 4, r.pos.y + r.size.y - 3}, {r.size.x - 8, 2}}, kTextDark, 1.f);
     }
 
     // Overview: loop window, active steps, pages, viewed page, playhead.
@@ -103,7 +103,7 @@ void GridPanel::drawLayer(const DrawArgs& args, int layer)
         nvgMoveTo(vg, ov.pos.x + p * kGridCols * kStepW, ov.pos.y + 2);
         nvgLineTo(vg, ov.pos.x + p * kGridCols * kStepW, ov.pos.y + ov.size.y - 2);
     }
-    nvgStrokeColor(vg, kButtonOn);
+    nvgStrokeColor(vg, kOverviewLines);
     nvgStrokeWidth(vg, 1.f);
     nvgStroke(vg);
     strokeRect(vg, {{ov.pos.x + ui->view.page * kGridCols * kStepW, ov.pos.y}, {kGridCols * kStepW, ov.size.y}}, kText,

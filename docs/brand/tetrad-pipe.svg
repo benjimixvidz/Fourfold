@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Tetrad Pipe">
+  <rect width="64" height="64" rx="14" fill="#17181C"/>
+  <rect x="8" y="17" width="6" height="6" rx="1.5" fill="#FFB03B"/>
+  <rect x="16" y="17" width="6" height="6" rx="1.5" fill="#4A4C56"/>
+  <rect x="24" y="17" width="6" height="6" rx="1.5" fill="#FFB03B"/>
+  <rect x="32" y="17" width="6" height="6" rx="1.5" fill="#4A4C56"/>
+  <rect x="8" y="25" width="6" height="6" rx="1.5" fill="#FFB03B"/>
+  <rect x="16" y="25" width="6" height="6" rx="1.5" fill="#4A4C56"/>
+  <rect x="24" y="25" width="6" height="6" rx="1.5" fill="#FFB03B"/>
+  <rect x="32" y="25" width="6" height="6" rx="1.5" fill="#4A4C56"/>
+  <rect x="8" y="33" width="6" height="6" rx="1.5" fill="#FFB03B"/>
+  <rect x="16" y="33" width="6" height="6" rx="1.5" fill="#FFB03B"/>
+  <rect x="24" y="33" width="6" height="6" rx="1.5" fill="#FFB03B"/>
+  <rect x="32" y="33" width="6" height="6" rx="1.5" fill="#FFB03B"/>
+  <rect x="8" y="41" width="6" height="6" rx="1.5" fill="#4A4C56"/>
+  <rect x="16" y="41" width="6" height="6" rx="1.5" fill="#4A4C56"/>
+  <rect x="24" y="41" width="6" height="6" rx="1.5" fill="#FFB03B"/>
+  <rect x="32" y="41" width="6" height="6" rx="1.5" fill="#4A4C56"/>
+  <path d="M41 20H46M41 28H46M41 36H46M41 44H46" fill="none" stroke="#4A4C56" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="52" cy="20" r="4.5" fill="none" stroke="#FFB03B" stroke-width="2.5"/>
+  <circle cx="52" cy="28" r="4.5" fill="none" stroke="#FFB03B" stroke-width="2.5"/>
+  <circle cx="52" cy="36" r="4.5" fill="none" stroke="#FFB03B" stroke-width="2.5"/>
+  <circle cx="52" cy="44" r="4.5" fill="none" stroke="#FFB03B" stroke-width="2.5"/>
+</svg>

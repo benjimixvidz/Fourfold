@@ -18,15 +18,16 @@ struct Labels : TransparentWidget {
         Vec pos;
         std::string text;
         float size;
+        NVGcolor color;
     };
     std::vector<Item> items;
-    void add(Vec pos, const std::string& t, float size) { items.push_back({pos, t, size}); }
+    void add(Vec pos, const std::string& t, float size, NVGcolor color = kText) { items.push_back({pos, t, size, color}); }
     void draw(const DrawArgs& args) override
     {
         if (!setFont(args.vg))
             return;
         for (const Item& it : items)
-            text(args.vg, it.pos.x, it.pos.y, it.text, kText, it.size, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+            text(args.vg, it.pos.x, it.pos.y, it.text, it.color, it.size, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
     }
 };
 
@@ -166,7 +167,7 @@ struct HelpButton : OpaqueWidget {
         if (layer != 1)
             return;
         NVGcontext* vg = args.vg;
-        fillRect(vg, {{0, 0}, box.size}, ui->help ? kText : hovered ? kButtonHover : kButton, 3.f);
+        fillRect(vg, {{0, 0}, box.size}, ui->help ? kBrand : hovered ? kButtonHover : kButton, 3.f);
         if (!ui->help)
             strokeRect(vg, {{0, 0}, box.size}, kTextDim, 1.f, 3.f);
         setFont(vg);
@@ -229,7 +230,7 @@ struct TetradWidget : ModuleWidget {
 
         auto* labels = new Labels;
         labels->box.size = box.size;
-        labels->add(Vec(420, 12), "TETRAD SEQ", 12.f);
+        labels->add(Vec(420, 12), "TETRAD", 12.f, kBrand);
         constexpr float jackY = 352, labelY = 330;
         const char* inputNames[] = {"CLOCK", "RESET", "RUN", "TRANSP"};
         for (int i = 0; i < Tetrad::NUM_INPUTS; ++i) {
