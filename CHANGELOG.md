@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.7
+
+- Tetrad: the name strip on the left edge, as on the Pipe and the Fourfold voices. The panel
+  grows to 59 HP; the header goes, the inspector and the grid reach the top, and the grid rows,
+  overview and tabs are taller. HELP sits under the inspector. Patches place the Pipe 3 HP
+  further right.
+
 ## 2.6.6
 
 - Pipe: the two jack columns are placed inside the width left of the name band, with room for

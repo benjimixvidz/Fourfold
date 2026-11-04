@@ -1,6 +1,6 @@
 #pragma once
-// The module's logo and name centred at the top of the panel, the Fourfold lockup at the bottom
-// left (res/brand).
+// A2: the module name runs up the left edge on an amber band, the module logo above it and the
+// Fourfold mark below (res/brand). The compact header stays for a module without the band.
 
 #include "plugin.hpp"
 

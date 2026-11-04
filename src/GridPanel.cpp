@@ -5,9 +5,9 @@ namespace ui_tetrad {
 namespace {
 
 constexpr float kW = 588;
-constexpr float kTabH = 20;
-constexpr float kOvY = 24, kOvH = 20, kOvW = 560;
-constexpr float kGridY = 48, kColW = 35, kRowH = 30, kPadW = 32, kPadH = 27;
+constexpr float kTabH = 22;
+constexpr float kOvY = 26, kOvH = 24, kOvW = 560;
+constexpr float kGridY = 54, kColW = 35, kRowH = 32, kPadW = 32, kPadH = 29;
 constexpr float kLabelX = 562;
 constexpr float kStepW = kOvW / kMaxSteps;
 

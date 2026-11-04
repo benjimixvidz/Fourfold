@@ -1,5 +1,5 @@
-// Tetrad panel (56 HP): inspector on the left, grid on the right, every jack on one row at the
-// bottom. Keyboard shortcuts work while the pointer is over the module; keys Rack uses (Delete,
+// Tetrad panel (59 HP): the name strip on the left edge, then the inspector and the grid up to
+// the top of the panel, every jack on one row at the bottom. Keyboard shortcuts work while the pointer is over the module; keys Rack uses (Delete,
 // Ctrl+C...) are only taken when there is a selection to act on.
 
 #include "GridPanel.hpp"
@@ -158,7 +158,7 @@ struct TransportButton : app::Switch {
     }
 };
 
-// HELP, at the top right of the panel: every gesture and shortcut (also key H).
+// HELP, under the inspector: every gesture and shortcut (also key H).
 struct HelpButton : OpaqueWidget {
     UiState* ui = nullptr;
     bool hovered = false;
@@ -208,13 +208,13 @@ struct TetradWidget : ModuleWidget {
         auto* inspector = new Inspector;
         inspector->module = module;
         inspector->ui = &ui;
-        inspector->box.pos = Vec(8, 26);
+        inspector->box.pos = Vec(kStripWidth + 6, 4);
         addChild(inspector);
 
         grid = new GridPanel;
         grid->module = module;
         grid->ui = &ui;
-        grid->box.pos = Vec(244, 26);
+        grid->box.pos = Vec(kStripWidth + 242, 4);
         addChild(grid);
 
         const Vec origin = inspector->box.pos;
@@ -234,11 +234,12 @@ struct TetradWidget : ModuleWidget {
         constexpr float jackY = 352, labelY = 330;
         const char* inputNames[] = {"CLOCK", "RESET", "RUN", "TRANSP"};
         for (int i = 0; i < Tetrad::NUM_INPUTS; ++i) {
-            addInput(createInputCentered<PJ301MPort>(Vec(30 + i * 37, jackY), module, i));
-            labels->add(Vec(30 + i * 37, labelY), inputNames[i], 7.5f);
+            const float x = kStripWidth + 28 + i * 37;
+            addInput(createInputCentered<PJ301MPort>(Vec(x, jackY), module, i));
+            labels->add(Vec(x, labelY), inputNames[i], 7.5f);
         }
         for (int t = 0; t < kNumTracks; ++t) {
-            const float x = 206 + t * 158;
+            const float x = kStripWidth + 204 + t * 158;
             addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<GreenLight>>>(
                 Vec(x, jackY), module, trackParamIndex(t, kTrackEnabled), Tetrad::ON_LIGHT + t));
             labels->add(Vec(x, labelY), string::f("T%d", t + 1), 9.f);
@@ -250,20 +251,22 @@ struct TetradWidget : ModuleWidget {
             }
         }
         addChild(labels);
-        auto* branding = new Branding("res/brand/tetrad.svg", "TETRAD");
+        auto* branding = new Branding("res/brand/tetrad.svg", "TETRAD", true);
         branding->box.size = box.size;
         addChild(branding);
 
         auto* helpButton = new HelpButton;
         helpButton->ui = &ui;
-        helpButton->box.pos = Vec(grid->box.pos.x + grid->box.size.x - 60, 3);
+        // Under the inspector, flush with the bottom of the grid.
         helpButton->box.size = Vec(60, 19);
+        helpButton->box.pos = Vec(inspector->box.pos.x + inspector->box.size.x - 60,
+                                  grid->box.pos.y + grid->box.size.y - 19);
         addChild(helpButton);
 
         auto* help = new HelpOverlay;
         help->ui = &ui;
-        help->box.pos = Vec(4, 24);
-        help->box.size = Vec(box.size.x - 8, 292);
+        help->box.pos = Vec(kStripWidth + 4, 4);
+        help->box.size = Vec(box.size.x - kStripWidth - 8, grid->box.size.y);
         addChild(help);
     }
 

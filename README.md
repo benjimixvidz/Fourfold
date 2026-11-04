@@ -9,7 +9,7 @@ its routing expander.
 
 | Module | Width | Role |
 |---|---|---|
-| **Tetrad** | 56 HP | Four tracks of up to 128 steps, edited on a 16x8 grid, with an inspector for every setting |
+| **Tetrad** | 59 HP | Four tracks of up to 128 steps, edited on a 16x8 grid, with an inspector for every setting |
 | **Tetrad Pipe** | 12 HP | 16 outputs, each routed by right-click to any signal of any track |
 
 ## Features
@@ -35,7 +35,7 @@ The left half is an **inspector**: transport, the selected track's settings, roo
 the generator, and the fields of the selected steps. The right half holds the track and lane
 tabs, an overview of the 128 steps with the loop handles, the 16x8 grid and the note names of
 the rows. A help line at the bottom of the inspector describes what is under the pointer, and
-the **HELP** button (top right, or key `H`) shows every gesture and shortcut. PLAY and RESET
+the **HELP** button (under the inspector, or key `H`) shows every gesture and shortcut. PLAY and RESET
 are the two large buttons at the top left of the inspector.
 
 ### Mouse
