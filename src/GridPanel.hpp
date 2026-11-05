@@ -20,7 +20,7 @@ struct GridPanel : OpaqueWidget {
     int hoverCol = -1, hoverRow = -1, hoverLane = -1;
 
     GridPanel();
-    bool poly() const;
+    int trackMode() const;   // Mono, Poly or Drum, of the viewed track
     int playhead() const;
     bool playing() const;
 
@@ -28,9 +28,10 @@ struct GridPanel : OpaqueWidget {
     int overviewStep(float x) const;
     void paintCell(int col, int row, bool first);
     void selectTo(int col);
-    void stepMenu(int col);
+    void stepMenu(int col, int row);
     void scroll(int delta);
     void setLoop(int start, int length, const std::string& name);
+    void pressRowLabel(Vec p, int row);
 
     void step() override;
     void drawLayer(const DrawArgs& args, int layer) override;

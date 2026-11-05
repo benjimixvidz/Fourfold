@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -471,54 +472,54 @@ void testGrid16x8()
 
     // Mono: press row for degree +3 -> active on +3; same pad again -> off; other row -> moves.
     const int rowPlus3 = kGridRows - 1 - (3 - view.lowestDegree);
-    CHECK(pressPad(bank, view, false, 3, rowPlus3));
+    CHECK(pressPad(bank, view, kModeMono, 3, rowPlus3));
     CHECK(s.active && s.degree[0] == 3);
-    CHECK(padInfo(bank, view, false, 7, 0, 64, 3, rowPlus3).lit);
-    CHECK(pressPad(bank, view, false, 3, rowPlus3));
+    CHECK(padInfo(bank, view, kModeMono, 7, 0, 64, 3, rowPlus3).lit);
+    CHECK(pressPad(bank, view, kModeMono, 3, rowPlus3));
     CHECK(!s.active);
-    CHECK(pressPad(bank, view, false, 3, 7));   // bottom row = -2
+    CHECK(pressPad(bank, view, kModeMono, 3, 7));   // bottom row = -2
     CHECK(s.active && s.degree[0] == -2);
 
     // Poly: add up to 7 notes, an 8th replaces the oldest, pressing a lit one removes it.
     PatternBank pb;
     Step& p = pb.tracks[1].steps[35];
     for (int row = 7; row >= 0; --row)
-        pressPad(pb, view, true, 3, row);
+        pressPad(pb, view, kModePoly, 3, row);
     CHECK(p.active && p.numNotes == kMaxVoices);
     CHECK(p.degree[0] == -1 && p.degree[6] == 5);   // -2 was pushed out by the 8th
-    CHECK(padInfo(pb, view, true, 7, 0, 128, 3, 0).lit && !padInfo(pb, view, true, 7, 0, 128, 3, 7).lit);
-    pressPad(pb, view, true, 3, 0);                 // remove +5
-    CHECK(p.numNotes == 6 && !padInfo(pb, view, true, 7, 0, 128, 3, 0).lit);
+    CHECK(padInfo(pb, view, kModePoly, 7, 0, 128, 3, 0).lit && !padInfo(pb, view, kModePoly, 7, 0, 128, 3, 7).lit);
+    pressPad(pb, view, kModePoly, 3, 0);                 // remove +5
+    CHECK(p.numNotes == 6 && !padInfo(pb, view, kModePoly, 7, 0, 128, 3, 0).lit);
 
     // Parameter lanes: top row = maximum, bottom row = minimum.
     view.lane = kLaneVelocity;
-    pressPad(bank, view, false, 3, 0);
+    pressPad(bank, view, kModeMono, 3, 0);
     CHECK(s.velocity == 127);
     view.lane = kLaneRatchet;
-    pressPad(bank, view, false, 3, 4);
+    pressPad(bank, view, kModeMono, 3, 4);
     CHECK(s.ratchet == 4);
-    CHECK(padInfo(bank, view, false, 7, 0, 128, 3, 4).lit && !padInfo(bank, view, false, 7, 0, 128, 3, 3).lit);
+    CHECK(padInfo(bank, view, kModeMono, 7, 0, 128, 3, 4).lit && !padInfo(bank, view, kModeMono, 7, 0, 128, 3, 3).lit);
     view.lane = kLaneCondition;
-    pressPad(bank, view, false, 3, 4);   // 4th row from the bottom (row 4 from the top) = 1:4
+    pressPad(bank, view, kModeMono, 3, 4);   // 4th row from the bottom (row 4 from the top) = 1:4
     CHECK(s.condition == kCondAB && s.condA == 1 && s.condB == 4);
     view.lane = kLaneGate;
-    pressPad(bank, view, false, 3, 0);
+    pressPad(bank, view, kModeMono, 3, 0);
     CHECK(s.gate == 200);
 
     // Loop window: Start 30, Length 4 -> 0-based steps 29..32; only 32 is on page 2.
     view.lane = kLaneNote;
-    CHECK(padInfo(bank, view, false, 7, 29, 4, 0, 0).inLoop);
-    CHECK(!padInfo(bank, view, false, 7, 29, 4, 1, 0).inLoop);
+    CHECK(padInfo(bank, view, kModeMono, 7, 29, 4, 0, 0).inLoop);
+    CHECK(!padInfo(bank, view, kModeMono, 7, 29, 4, 1, 0).inLoop);
     // Wrapping window: Start 127, Length 4 covers 126, 127, 0, 1.
     view.page = 0;
-    CHECK(padInfo(bank, view, false, 7, 126, 4, 1, 0).inLoop && !padInfo(bank, view, false, 7, 126, 4, 2, 0).inLoop);
+    CHECK(padInfo(bank, view, kModeMono, 7, 126, 4, 1, 0).inLoop && !padInfo(bank, view, kModeMono, 7, 126, 4, 2, 0).inLoop);
     // Root rows follow the scale size.
     view.lowestDegree = 0;
-    CHECK(padInfo(bank, view, false, 7, 0, 16, 0, 7).rootRow && padInfo(bank, view, false, 7, 0, 16, 0, 0).rootRow);
-    CHECK(!padInfo(bank, view, false, 5, 0, 16, 0, 0).rootRow);   // +7 is not a root in a 5-note scale
+    CHECK(padInfo(bank, view, kModeMono, 7, 0, 16, 0, 7).rootRow && padInfo(bank, view, kModeMono, 7, 0, 16, 0, 0).rootRow);
+    CHECK(!padInfo(bank, view, kModeMono, 5, 0, 16, 0, 0).rootRow);   // +7 is not a root in a 5-note scale
     char label[16];
     view.lane = kLaneCondition;
-    CHECK(std::strcmp(rowLabel(view, 7, label, sizeof(label)), "--") == 0);
+    CHECK(std::strcmp(rowLabel(view, kModeMono, 7, label, sizeof(label)), "--") == 0);
 }
 
 // Runs a sequencer from a pulse list (sample indices), sample by sample, like the Rack module.
@@ -534,7 +535,7 @@ ClockRun runClock(Sequencer& seq, const std::vector<uint64_t>& pulses, uint64_t 
     ClockFollower clock;
     clock.setPpqn(ppqn);
     CvVoices voices;
-    voices.setPoly(0, seq.settings().tracks[0].mode == kModePoly);
+    voices.setMode(0, seq.settings().tracks[0].mode);
     voices.setRetrigSamples(48);
     ClockRun r;
     bool before = false;
@@ -628,6 +629,160 @@ void testClockFollower()
     CHECK((r.keys == std::vector<int>{60, 61, 62, 60, 61}));
 }
 
+void testPpqnChangeKeepsPosition()
+{
+    std::printf("clock input: a new PPQN keeps the position\n");
+    ClockFollower clock;
+    clock.setPpqn(24);
+    TransportState tr;
+    for (uint64_t i = 0; i < 240 * 1000; ++i)   // 240 pulses = 10 beats at 24 PPQN
+        tr = clock.tick(i % 1000 == 0, true, kRate);
+    const double before = tr.beat;
+    clock.setPpqn(4);
+    tr = clock.tick(false, true, kRate);
+    CHECK(std::fabs(tr.beat - before) <= 0.25);   // only the time since the last pulse is reread
+    for (int i = 0; i < 998; ++i)
+        tr = clock.tick(false, true, kRate);
+    tr = clock.tick(true, true, kRate);   // one more pulse = a quarter of a beat at 4 PPQN
+    CHECK(std::fabs(tr.beat - (239.0 / 24.0 + 0.25)) < 1e-9);
+}
+
+void testDrunkRewind()
+{
+    std::printf("drunk: starts on the loop's first step, and again after a rewind\n");
+    Sequencer seq;
+    seq.reset(kRate);
+    Settings s = baseSettings();
+    s.global.scale = kScaleChromatic;
+    s.tracks[0].direction = kDirDrunk;
+    seq.setSettings(s);
+    fillTrack(seq, 0, 1, true);
+    Recorder rec;
+    play(seq, rec, 120.0, 0.0, 48000, 64);   // 8 sixteenths
+    CHECK(!rec.ons().empty() && rec.ons()[0].key == 60);
+    seq.rewind();
+    Recorder again;
+    play(seq, again, 120.0, 0.0, 6000, 64, 48000);   // RESET: the transport back at beat 0
+    CHECK(again.ons().size() == 1 && again.ons()[0].key == 60);
+}
+
+void testLaneKeepsNewerNote()
+{
+    std::printf("drum rows: an older note's off leaves the row to the newer note\n");
+    CvVoices voices;
+    voices.setMode(0, kModePoly);
+    voices.setRetrigSamples(48);
+    CvFrame f{};
+    voices.beginSample();
+    voices.emit({0, true, 0, 60, 0.8f, 0});    // degree 0 at C4
+    voices.output(f);
+    voices.beginSample();
+    voices.emit({0, true, 0, 62, 0.8f, 0});    // degree 0 again, transposed: a new key
+    voices.emit({0, false, 0, 60, 0.f, 0});    // the old note ends after it
+    for (int i = 0; i < 100; ++i) {
+        voices.output(f);
+        voices.beginSample();
+    }
+    CHECK(f.rowGate[0] & 1u);
+    voices.emit({0, false, 0, 62, 0.f, 0});
+    voices.output(f);
+    CHECK(!(f.rowGate[0] & 1u));
+}
+
+void testDrumMode()
+{
+    std::printf("drum mode: each row plays its own hits on its channel, scaled by its row, muted rows silent\n");
+    Sequencer seq;
+    seq.reset(kRate);
+    Settings s = baseSettings();
+    s.tracks[0].mode = kModeDrum;
+    s.tracks[0].gate = 50;
+    seq.setSettings(s);
+    PatternBank bank = seq.patterns();
+    for (auto& st : bank.tracks[0].steps)
+        st = Step{};
+    bank.tracks[0].steps[0].hits = 0b101;          // rows 1 and 3
+    bank.tracks[0].steps[0].drum[0].velocity = 100;
+    bank.tracks[0].steps[0].drum[2].velocity = 120;
+    bank.tracks[0].steps[1].hits = 0b10;           // row 2, two ratchet hits
+    bank.tracks[0].steps[1].drum[1].ratchet = 2;
+    bank.tracks[0].steps[2].hits = 0b100;          // row 3 again, but the row is muted
+    bank.tracks[0].rows[0].level = 50;
+    bank.tracks[0].steps[3].hits = 0b1;
+    bank.tracks[0].steps[3].drum[0].velocity = 100;
+    seq.setPatterns(bank);
+    bank.tracks[0].rows[2].mute = true;   // applied from step 2 on
+    Recorder rec;
+    play(seq, rec, 120.0, 0.0, 12000, 64);   // steps 0 and 1
+    seq.setPatterns(bank);
+    play(seq, rec, 120.0, 12000 * 120.0 / 60.0 / kRate, 12000, 64, 12000);   // steps 2 and 3
+    const auto ons = rec.ons();
+    CHECK(ons.size() == 5);
+    if (ons.size() == 5) {
+        CHECK(ons[0].key == 60 && ons[1].key == 62 && ons[0].frame == 0 && ons[1].frame == 0);
+        CHECK(std::lround(ons[0].velocity * 127) == 50 && std::lround(ons[1].velocity * 127) == 120);
+        CHECK(ons[2].key == 61 && ons[3].key == 61 && ons[2].frame == 6000 && ons[3].frame == 9000);
+        CHECK(ons[4].key == 60 && ons[4].frame == 18000);   // step 2's muted row 3 is silent
+    }
+
+    CvVoices voices;
+    voices.setMode(0, kModeDrum);
+    CHECK(voices.channels(0) == kDrumRows);
+    voices.beginSample();
+    voices.emit({0, true, 0, 62, 1.f, 2});
+    CvFrame f{};
+    voices.output(f);
+    CHECK(f.channels[0] == kDrumRows && f.gateMask[0] == 0b100 && f.key[0][2] == 62 && (f.rowGate[0] & 0b100));
+}
+
+void testStateVersion3()
+{
+    std::printf("state: version 3 documents (no drum part) still load\n");
+    PatternBank bank;
+    generatePattern({7, 60, 8, 1, 0, 0}, bank.tracks[0]);
+    std::string text = serializePatterns(bank);
+    std::string v3;
+    std::istringstream lines(text);
+    std::string line;
+    while (std::getline(lines, line))
+        if (line.rfind("row ", 0) != 0 && line.rfind("drum ", 0) != 0)
+            v3 += line + "\n";
+    v3.replace(v3.find(" 4\n"), 3, " 3\n");
+    PatternBank loaded;
+    CHECK(deserializePatterns(v3, loaded));
+    CHECK(loaded.tracks[0].steps[5].active == bank.tracks[0].steps[5].active);
+    CHECK(loaded.tracks[0].steps[0].hits == 0 && loaded.tracks[0].rows[3].level == 100);
+}
+
+void testDrumGrid()
+{
+    std::printf("drum grid: the Note lane toggles hits, value lanes and edits act on the focused row\n");
+    PatternBank bank;
+    GridView view;
+    view.lane = kLaneNote;
+    CHECK(pressPad(bank, view, kModeDrum, 2, 7));   // bottom grid row = row 1
+    CHECK(pressPad(bank, view, kModeDrum, 2, 5));   // row 3
+    CHECK(bank.tracks[0].steps[2].hits == 0b101);
+    CHECK(padInfo(bank, view, kModeDrum, 7, 0, 16, 2, 5).lit && !padInfo(bank, view, kModeDrum, 7, 0, 16, 2, 6).lit);
+    view.focusRow = 2;
+    view.lane = kLaneVelocity;
+    pressPad(bank, view, kModeDrum, 2, 4);          // 4th level from the bottom = 64
+    CHECK(bank.tracks[0].steps[2].drum[2].velocity == 64 && bank.tracks[0].steps[2].drum[0].velocity == 100);
+    char label[8];
+    view.lane = kLaneNote;
+    CHECK(std::strcmp(rowLabel(view, kModeDrum, 0, label, sizeof(label)), "R8") == 0);
+
+    StepMask sel;
+    sel.set(2);
+    CHECK(adjustSteps(bank, 0, sel, kStepRatchet, 2, 2));
+    CHECK(bank.tracks[0].steps[2].drum[2].ratchet == 3 && bank.tracks[0].steps[2].ratchet == 1);
+    euclidRow(bank, 0, 0, 16, 4, 0, 1);
+    int count = 0;
+    for (int i = 0; i < 16; ++i)
+        count += (bank.tracks[0].steps[i].hits >> 1) & 1;
+    CHECK(count == 4 && (bank.tracks[0].steps[2].hits & 0b101) == 0b101);
+}
+
 void testCvVoices()
 {
     std::printf("cv voices: retrigger on the same key, legato on a new key, poly channels\n");
@@ -655,7 +810,7 @@ void testCvVoices()
     CHECK(v.gateOut(0, 0) && v.voice(0, 0).key == 64);
     CHECK(v.channels(0) == 1);
 
-    v.setPoly(1, true);
+    v.setMode(1, kModePoly);
     v.beginSample();
     on(1, 60);
     on(1, 63);
@@ -743,7 +898,7 @@ void testStepFields()
 
 void testDrumLanes()
 {
-    std::printf("drum lanes: a poly track's rows 0..7 get their own gate, trigger and velocity\n");
+    std::printf("drum rows: a poly track's rows 0..7 get their own gate, trigger and velocity\n");
     Sequencer seq;
     seq.reset(kRate);
     Settings s = baseSettings();
@@ -770,10 +925,10 @@ void testDrumLanes()
     ClockFollower clock;
     clock.setPpqn(4);
     CvVoices voices;
-    voices.setPoly(0, true);
+    voices.setMode(0, kModePoly);
     voices.setRetrigSamples(48);
     CvFrame f{};
-    std::vector<int> laneRises[kDrumLanes];
+    std::vector<int> rowRises[kDrumRows];
     int trigSamples = 0;
     uint8_t before = 0;
     for (uint64_t i = 0; i < 18000; ++i) {
@@ -781,22 +936,22 @@ void testDrumLanes()
         voices.beginSample();
         seq.render(clock.tick(pulse, true, kRate), 0, 1, voices);
         voices.output(f);
-        for (int l = 0; l < kDrumLanes; ++l)
-            if ((f.laneGate[0] & (1u << l)) && !(before & (1u << l)))
-                laneRises[l].push_back(int(i));
-        before = f.laneGate[0];
-        trigSamples += (f.laneTrig[0] & 1u) ? 1 : 0;
+        for (int l = 0; l < kDrumRows; ++l)
+            if ((f.rowGate[0] & (1u << l)) && !(before & (1u << l)))
+                rowRises[l].push_back(int(i));
+        before = f.rowGate[0];
+        trigSamples += (f.rowTrig[0] & 1u) ? 1 : 0;
         if (i == 10)
-            CHECK(f.laneVelocity[0][0] == 120 && f.laneVelocity[0][2] == 120 && (f.trigMask & 1u));
+            CHECK(f.rowVelocity[0][0] == 120 && f.rowVelocity[0][2] == 120 && (f.trigMask & 1u));
         if (i == 6010)
-            CHECK(f.laneVelocity[0][1] == 90 && !(f.laneGate[0] & 1u));
+            CHECK(f.rowVelocity[0][1] == 90 && !(f.rowGate[0] & 1u));
     }
-    CHECK((laneRises[0] == std::vector<int>{0, 12000}));
-    CHECK((laneRises[1] == std::vector<int>{6000}));
-    CHECK((laneRises[2] == std::vector<int>{0}));
-    CHECK(laneRises[3].empty());
+    CHECK((rowRises[0] == std::vector<int>{0, 12000}));
+    CHECK((rowRises[1] == std::vector<int>{6000}));
+    CHECK((rowRises[2] == std::vector<int>{0}));
+    CHECK(rowRises[3].empty());
     CHECK(trigSamples == 2 * 48);   // two kick triggers of 1 ms
-    CHECK(f.laneVelocity[0][0] == 60);
+    CHECK(f.rowVelocity[0][0] == 60);
 }
 
 void testCvFrameFastPath()
@@ -816,8 +971,8 @@ void testCvFrameFastPath()
     seqB.reset(kRate);
     ClockFollower ca, cb;
     CvVoices a, b;
-    a.setPoly(0, true);
-    b.setPoly(0, true);
+    a.setMode(0, kModePoly);
+    b.setMode(0, kModePoly);
     a.setRetrigSamples(30);
     b.setRetrigSamples(30);
     CvFrame fa{};
@@ -1128,6 +1283,12 @@ int main()
     testStartWindow();
     testGrid16x8();
     testClockFollower();
+    testPpqnChangeKeepsPosition();
+    testDrunkRewind();
+    testLaneKeepsNewerNote();
+    testDrumMode();
+    testDrumGrid();
+    testStateVersion3();
     testCvVoices();
     testFastPathEquivalence();
     testStepFields();

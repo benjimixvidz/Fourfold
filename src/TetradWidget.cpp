@@ -56,13 +56,13 @@ struct HelpOverlay : OpaqueWidget {
             "Drag             paint notes, draw bars",
             "Shift+drag       select steps · Ctrl+click: add/remove",
             "Right-click      step menu: ratchet, condition, clear, paste",
-            "Row labels       drag or wheel: scroll notes",
+            "Row labels       drag or wheel: scroll notes · DRUM: row, mute",
             "",
             "#OVERVIEW (128 steps)",
             "Click            show that page (follow off)",
             "Drag the bars    loop start / end · drag inside: move",
             "Double-click     loop on that page",
-            "#INSPECTOR (left)",
+            "#INSPECTOR (left) · EXPERT: every setting",
             "Drag a value     change it (Ctrl: fine)",
             "Double-click     default value (numbers)",
             "Right-click      every value · numbers: type one",
@@ -77,7 +77,7 @@ struct HelpOverlay : OpaqueWidget {
             "E · S            Euclid on the loop · new seed",
             "Left / Right     page · with selection: move the steps",
             "Shift+Left/Right rotate the whole loop",
-            "Up / Down        selection: transpose / value · else scroll",
+            "Up / Down        selection: transpose / value · else scroll · DRUM: row",
             "Shift+Up/Down    octave / x10",
             "Ctrl+A · Esc     select loop · deselect",
             "Ctrl+C X V       copy · cut · paste at the selection",
@@ -155,6 +155,44 @@ struct TransportButton : app::Switch {
         nvgFill(vg);
         setFont(vg);
         text(vg, cx, 24, isPlay ? "PLAY" : "RESET", ink, 8.f, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+    }
+};
+
+// EXPERT, at the left of the name band after the logo, as on the Fourfold voices: off, the
+// inspector shows the main settings; on, every setting. A Rack switch (undo, MIDI mapping).
+struct ExpertButton : app::Switch {
+    UiState* ui = nullptr;
+    bool hovered = false;
+
+    ExpertButton() { box.size = Vec(64, 18); }
+
+    void onEnter(const EnterEvent& e) override
+    {
+        hovered = true;
+        ui->hint = "Expert: every setting in the inspector · off: the main ones";
+        Switch::onEnter(e);
+    }
+
+    void onLeave(const LeaveEvent& e) override
+    {
+        hovered = false;
+        Switch::onLeave(e);
+    }
+
+    void drawLayer(const DrawArgs& args, int layer) override
+    {
+        if (layer != 1)
+            return Switch::drawLayer(args, layer);
+        NVGcontext* vg = args.vg;
+        ParamQuantity* q = getParamQuantity();
+        const bool on = q && q->getValue() > 0.5f;
+        fillRect(vg, {{0, 0}, box.size}, on ? kTextDark : hovered ? kButtonHover : kButton, 3.f);
+        if (!on)
+            strokeRect(vg, {{0, 0}, box.size}, kTextDim, 1.f, 3.f);
+        // The lit dot of the family's buttons.
+        fillRect(vg, {{7, box.size.y / 2 - 3}, {6, 6}}, on ? kBrand : nvgTransRGBAf(kBrand, 0.35f), 1.5f);
+        setFont(vg);
+        text(vg, 18, box.size.y / 2 + 0.5f, "EXPERT", on ? kBrand : kInk, 10.f);
     }
 };
 
@@ -259,6 +297,10 @@ struct TetradWidget : ModuleWidget {
         auto* branding = new Branding("res/brand/tetrad.svg", "TETRAD", "SEQUENCER");
         branding->box.size = box.size;
         addChild(branding);
+
+        auto* expert = createParam<ExpertButton>(Vec(34, kBandTop + 3), module, Tetrad::EXPERT_PARAM);
+        expert->ui = &ui;
+        addParam(expert);
 
         auto* helpButton = new HelpButton;
         helpButton->ui = &ui;
@@ -385,7 +427,15 @@ struct TetradWidget : ModuleWidget {
         case GLFW_KEY_UP:
         case GLFW_KEY_DOWN: {
             const int d = e.key == GLFW_KEY_UP ? 1 : -1;
-            if (sel && ui.view.lane == kLaneNote) {
+            const bool drum = trackValue(m, t, kTrackMode) == kModeDrum;
+            if (drum && (!sel || ui.view.lane == kLaneNote)) {
+                ui.view.focusRow = clamp(ui.view.focusRow + d, 0, kDrumRows - 1);   // the row edited
+            } else if (drum) {
+                const int amount = d * (shift ? 10 : 1), row = ui.view.focusRow;
+                editWithUndo(m, "edit steps", [&](PatternBank& b) {
+                    return adjustSteps(b, t, ui.selection, kLaneField[ui.view.lane], amount, row);
+                });
+            } else if (sel && ui.view.lane == kLaneNote) {
                 const int amount = d * (shift ? scaleSize(int(std::round(m->params[globalParamIndex(kGlobalScale)].getValue()))) : 1);
                 editWithUndo(m, "transpose steps", [&](PatternBank& b) { return transposeSteps(b, t, ui.selection, amount); });
             } else if (sel) {
@@ -531,10 +581,7 @@ struct TetradWidget : ModuleWidget {
         menu->addChild(createIndexSubmenuItem("Clock PPQN (input, or Pipe clock output)", ppqnLabels,
                                                 [=] { return size_t(m->ppqnIndex.load()); },
                                                 [=](size_t i) { m->ppqnIndex.store(int(i)); }));
-        auto* tempo = new ui::Slider;
-        tempo->quantity = m->getParamQuantity(Tetrad::TEMPO_PARAM);
-        tempo->box.size.x = 220.f;
-        menu->addChild(tempo);
+        menu->addChild(new ParamSlider(m, Tetrad::TEMPO_PARAM, 220.f));
     }
 };
 

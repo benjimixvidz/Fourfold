@@ -34,7 +34,11 @@ const char* conditionName(int condition)
     return condition >= 0 && condition < kCondCount ? kConditionNames[condition] : "?";
 }
 
-int stepField(const Step& s, int field)
+namespace {
+
+// The fields shared by a step and a drum hit.
+template <typename T>
+int fieldOf(const T& s, int field)
 {
     switch (field) {
     case kStepVelocity: return s.velocity;
@@ -44,12 +48,12 @@ int stepField(const Step& s, int field)
     case kStepCondition: return s.condition;
     case kStepCondA: return s.condA;
     case kStepCondB: return s.condB;
-    case kStepNotes: return s.numNotes;
     default: return 0;
     }
 }
 
-void setStepField(Step& s, int field, int v)
+template <typename T>
+void setFieldOf(T& s, int field, int v)
 {
     switch (field) {
     case kStepVelocity: s.velocity = uint8_t(std::clamp(v, 1, 127)); break;
@@ -69,40 +73,61 @@ void setStepField(Step& s, int field, int v)
         s.condB = uint8_t(std::clamp(v, 1, 8));
         s.condA = std::min(s.condA, s.condB);
         break;
-    case kStepNotes: s.numNotes = uint8_t(std::clamp(v, 1, kMaxVoices)); break;
     default: break;
     }
 }
 
-bool setSteps(PatternBank& bank, int track, const StepMask& sel, int field, int value)
+bool validRow(int row) { return row >= 0 && row < kDrumRows; }
+
+} // namespace
+
+int stepField(const Step& s, int field, int row)
 {
-    return forSelected(bank, track, sel, [&](Step& s) { setStepField(s, field, value); });
+    if (validRow(row))
+        return fieldOf(s.drum[row], field);
+    return field == kStepNotes ? s.numNotes : fieldOf(s, field);
 }
 
-bool adjustSteps(PatternBank& bank, int track, const StepMask& sel, int field, int delta)
+void setStepField(Step& s, int field, int v, int row)
+{
+    if (validRow(row))
+        setFieldOf(s.drum[row], field, v);
+    else if (field == kStepNotes)
+        s.numNotes = uint8_t(std::clamp(v, 1, kMaxVoices));
+    else
+        setFieldOf(s, field, v);
+}
+
+bool setSteps(PatternBank& bank, int track, const StepMask& sel, int field, int value, int row)
+{
+    return forSelected(bank, track, sel, [&](Step& s) { setStepField(s, field, value, row); });
+}
+
+bool adjustSteps(PatternBank& bank, int track, const StepMask& sel, int field, int delta, int row)
 {
     if (delta == 0)
         return false;
     return forSelected(bank, track, sel, [&](Step& s) {
+        uint8_t& gate = validRow(row) ? s.drum[row].gate : s.gate;
         if (field != kStepGate)
-            setStepField(s, field, stepField(s, field) + delta);
-        else if (s.gate > 100)
-            s.gate = delta < 0 ? 100 : s.gate;
+            setStepField(s, field, stepField(s, field, row) + delta, row);
+        else if (gate > 100)
+            gate = delta < 0 ? 100 : gate;
         else
-            s.gate = s.gate == 100 && delta > 0 ? kGateTie : uint8_t(std::clamp(s.gate + delta, 1, 100));
+            gate = gate == 100 && delta > 0 ? kGateTie : uint8_t(std::clamp(gate + delta, 1, 100));
     });
 }
 
-bool resetSteps(PatternBank& bank, int track, const StepMask& sel, int field)
+bool resetSteps(PatternBank& bank, int track, const StepMask& sel, int field, int row)
 {
     const Step def;
     return forSelected(bank, track, sel, [&](Step& s) {
         if (field == kStepCondition || field == kStepCondA || field == kStepCondB) {
-            s.condition = def.condition;
-            s.condA = def.condA;
-            s.condB = def.condB;
+            setStepField(s, kStepCondition, def.condition, row);
+            setStepField(s, kStepCondB, def.condB, row);
+            setStepField(s, kStepCondA, def.condA, row);
         } else {
-            setStepField(s, field, stepField(def, field));
+            setStepField(s, field, stepField(def, field, row), row);
         }
     });
 }
@@ -210,6 +235,22 @@ void euclid(PatternBank& bank, int track, int start, int length, int pulses, int
             s.degree[0] = int8_t(std::clamp(degree, -100, 100));
             s.probability = std::max<uint8_t>(s.probability, 1);
         }
+    }
+}
+
+void euclidRow(PatternBank& bank, int track, int start, int length, int pulses, int rotation, int row)
+{
+    if (!validRow(row))
+        return;
+    length = std::clamp(length, 1, kMaxSteps);
+    pulses = std::clamp(pulses, 0, length);
+    for (int i = 0; i < length; ++i) {
+        const int j = ((i + rotation) % length + length) % length;
+        const bool hit = pulses > 0 && (j * pulses) % length < pulses;
+        Step& s = bank.tracks[track].steps[wrap(start + i)];
+        s.hits = uint8_t(hit ? s.hits | (1u << row) : s.hits & ~(1u << row));
+        if (hit)
+            s.drum[row].probability = std::max<uint8_t>(s.drum[row].probability, 1);
     }
 }
 

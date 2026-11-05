@@ -47,7 +47,8 @@ enum TrackParam {
 
 constexpr int kNumParams = kNumGlobalParams + kNumTracks * kNumTrackParams;
 
-enum Mode { kModeMono, kModePoly };
+// Saved in patches: append only. Drum: each grid row is a fixed voice with its own hits.
+enum Mode { kModeMono, kModePoly, kModeDrum };
 enum Direction { kDirForward, kDirBackward, kDirPingPong, kDirRandom, kDirDrunk };
 
 constexpr int globalParamIndex(int p) { return p; }

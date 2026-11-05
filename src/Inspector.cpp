@@ -7,64 +7,119 @@ namespace {
 constexpr float kW = 228, kH = 286;
 constexpr float kColX[3] = {4, 79, 154};
 constexpr float kCellW = 72, kRowH = 15, kCellH = 14;
-constexpr float kTrackY = 52, kScaleY = 129, kGenY = 160, kSelY = 224;
 constexpr float kDefaultTempo = 120.f;
 
-enum class Ref { Track, Global, Step };
+// Vertical layout of the sections, for the main view (EXPERT off) and every setting (on).
+struct Layout {
+    float track, scale, genLabel, gen, buttons, selLabel, sel;
+};
+constexpr Layout kMain{52, 90, 113, 121, 140, 164, 172};
+constexpr Layout kExpert{52, 129, 152, 160, 192, 216, 224};
+
+// Row: the drum row settings of a Drum track (they take the place of the root and scale).
+enum class Ref { Track, Global, Step, Row };
+enum RowField { kRowFocus, kRowLevel, kRowProbability };
+enum Section { kSecTrack, kSecScale, kSecGen, kSecSel };
+
+struct Place {
+    int row, col, span;   // row -1: not shown in this view
+};
 
 struct FieldDef {
     Ref ref;
     int id;   // TrackParam, GlobalParam or StepField
     const char* label;
-    float y;
-    int col;
-    int span;
+    Section section;
+    Place expert, main;
     const char* hint;
 };
 
-const FieldDef kFields[] = {
-    {Ref::Track, kTrackMode, "MODE", kTrackY, 0, 1, "Mono: one note per step · Poly: up to 7 (also drum rows on the Pipe)"},
-    {Ref::Track, kTrackFollow, "TRSP IN", kTrackY, 1, 1, "The TRANSP jack transposes this track"},
-    {Ref::Track, kTrackEnabled, "ON", kTrackY, 2, 1, "Mute: the track keeps running silently (key M)"},
-    {Ref::Track, kTrackDivision, "DIV", kTrackY + kRowH, 0, 1, "Step length"},
-    {Ref::Track, kTrackDirection, "DIR", kTrackY + kRowH, 1, 1, "Forward, backward, ping-pong, random, drunk"},
-    {Ref::Track, kTrackSwing, "SWNG", kTrackY + kRowH, 2, 1, "50 = straight · above: odd steps later · below: earlier"},
-    {Ref::Track, kTrackLength, "LEN", kTrackY + 2 * kRowH, 0, 1, "Loop length (also: drag the bars of the overview)"},
-    {Ref::Track, kTrackStart, "START", kTrackY + 2 * kRowH, 1, 1, "First step of the loop"},
-    {Ref::Track, kTrackOctave, "OCT", kTrackY + 2 * kRowH, 2, 1, "Base octave (4 = C4)"},
-    {Ref::Track, kTrackTranspose, "TRSP", kTrackY + 3 * kRowH, 0, 1, "Transpose in semitones"},
-    {Ref::Track, kTrackVelocity, "VEL", kTrackY + 3 * kRowH, 1, 1, "Velocity scale of the whole track"},
-    {Ref::Track, kTrackGate, "GATE", kTrackY + 3 * kRowH, 2, 1, "Gate length of the whole track (> 100 % = legato)"},
-    {Ref::Track, kTrackChance, "PROB", kTrackY + 4 * kRowH, 0, 1, "Probability scale of the whole track"},
-    {Ref::Global, kGlobalKey, "ROOT", kScaleY, 0, 1, "Root of the scale (all tracks)"},
-    {Ref::Global, kGlobalScale, "SCALE", kScaleY, 1, 2, "Scale (all tracks): steps are scale degrees"},
-    {Ref::Track, kTrackSeed, "SEED", kGenY, 0, 1, "Generator seed: changing it rewrites the track (undo: Ctrl+Z)"},
-    {Ref::Track, kTrackDensity, "DENS", kGenY, 1, 1, "Share of active steps"},
-    {Ref::Track, kTrackRange, "RNG", kGenY, 2, 1, "Range in scale degrees"},
-    {Ref::Track, kTrackVoices, "VOIC", kGenY + kRowH, 0, 1, "Notes per step (Poly)"},
-    {Ref::Track, kTrackRatchet, "RTCH", kGenY + kRowH, 1, 1, "Share of steps with ratchets"},
-    {Ref::Track, kTrackVariation, "VARI", kGenY + kRowH, 2, 1, "Share of steps with trig conditions"},
-    {Ref::Step, kStepVelocity, "VEL", kSelY, 0, 1, "Velocity of the selected steps"},
-    {Ref::Step, kStepGate, "GATE", kSelY, 1, 1, "Gate of the selected steps (past 100: tie)"},
-    {Ref::Step, kStepProbability, "PROB", kSelY, 2, 1, "Probability of the selected steps"},
-    {Ref::Step, kStepRatchet, "RTCH", kSelY + kRowH, 0, 1, "Ratchets of the selected steps"},
-    {Ref::Step, kStepCondition, "COND", kSelY + kRowH, 1, 2, "Trig condition of the selected steps"},
-    {Ref::Step, kStepCondA, "A", kSelY + 2 * kRowH, 0, 1, "A of A:B"},
-    {Ref::Step, kStepCondB, "B", kSelY + 2 * kRowH, 1, 1, "B of A:B"},
-    {Ref::Step, kStepNotes, "NOTES", kSelY + 2 * kRowH, 2, 1, "Notes per step (Poly)"},
-};
-constexpr int kNumFields = int(sizeof(kFields) / sizeof(kFields[0]));
+constexpr Place kHidden{-1, 0, 1};
 
-math::Rect fieldRect(const FieldDef& f)
+// The main view keeps what shapes a line at once: mode, division, length, octave, gate, the
+// scale, the generator's seed, density and range, and the selected steps' velocity, gate and
+// probability. EXPERT shows the rest.
+const FieldDef kFields[] = {
+    {Ref::Track, kTrackMode, "MODE", kSecTrack, {0, 0, 1}, {0, 0, 1}, "Mono: one note per step · Poly: up to 7 (also drum rows on the Pipe)"},
+    {Ref::Track, kTrackFollow, "TRSP IN", kSecTrack, {0, 1, 1}, kHidden, "The TRANSP jack transposes this track"},
+    {Ref::Track, kTrackEnabled, "ON", kSecTrack, {0, 2, 1}, {0, 2, 1}, "Mute: the track keeps running silently (key M)"},
+    {Ref::Track, kTrackDivision, "DIV", kSecTrack, {1, 0, 1}, {0, 1, 1}, "Step length"},
+    {Ref::Track, kTrackDirection, "DIR", kSecTrack, {1, 1, 1}, kHidden, "Forward, backward, ping-pong, random, drunk"},
+    {Ref::Track, kTrackSwing, "SWNG", kSecTrack, {1, 2, 1}, kHidden, "50 = straight · above: odd steps later · below: earlier"},
+    {Ref::Track, kTrackLength, "LEN", kSecTrack, {2, 0, 1}, {1, 0, 1}, "Loop length (also: drag the bars of the overview)"},
+    {Ref::Track, kTrackStart, "START", kSecTrack, {2, 1, 1}, kHidden, "First step of the loop"},
+    {Ref::Track, kTrackOctave, "OCT", kSecTrack, {2, 2, 1}, {1, 1, 1}, "Base octave (4 = C4)"},
+    {Ref::Track, kTrackTranspose, "TRSP", kSecTrack, {3, 0, 1}, kHidden, "Transpose in semitones"},
+    {Ref::Track, kTrackVelocity, "VEL", kSecTrack, {3, 1, 1}, kHidden, "Velocity scale of the whole track"},
+    {Ref::Track, kTrackGate, "GATE", kSecTrack, {3, 2, 1}, {1, 2, 1}, "Gate length of the whole track (> 100 % = legato)"},
+    {Ref::Track, kTrackChance, "PROB", kSecTrack, {4, 0, 1}, kHidden, "Probability scale of the whole track"},
+    {Ref::Global, kGlobalKey, "ROOT", kSecScale, {0, 0, 1}, {0, 0, 1}, "Root of the scale (all tracks)"},
+    {Ref::Global, kGlobalScale, "SCALE", kSecScale, {0, 1, 2}, {0, 1, 2}, "Scale (all tracks): steps are scale degrees"},
+    {Ref::Track, kTrackSeed, "SEED", kSecGen, {0, 0, 1}, {0, 0, 1}, "Generator seed: changing it rewrites the track (undo: Ctrl+Z)"},
+    {Ref::Track, kTrackDensity, "DENS", kSecGen, {0, 1, 1}, {0, 1, 1}, "Share of active steps"},
+    {Ref::Track, kTrackRange, "RNG", kSecGen, {0, 2, 1}, {0, 2, 1}, "Range in scale degrees"},
+    {Ref::Track, kTrackVoices, "VOIC", kSecGen, {1, 0, 1}, kHidden, "Notes per step (Poly)"},
+    {Ref::Track, kTrackRatchet, "RTCH", kSecGen, {1, 1, 1}, kHidden, "Share of steps with ratchets"},
+    {Ref::Track, kTrackVariation, "VARI", kSecGen, {1, 2, 1}, kHidden, "Share of steps with trig conditions"},
+    {Ref::Step, kStepVelocity, "VEL", kSecSel, {0, 0, 1}, {0, 0, 1}, "Velocity of the selected steps"},
+    {Ref::Step, kStepGate, "GATE", kSecSel, {0, 1, 1}, {0, 1, 1}, "Gate of the selected steps (past 100: tie)"},
+    {Ref::Step, kStepProbability, "PROB", kSecSel, {0, 2, 1}, {0, 2, 1}, "Probability of the selected steps"},
+    {Ref::Step, kStepRatchet, "RTCH", kSecSel, {1, 0, 1}, kHidden, "Ratchets of the selected steps"},
+    {Ref::Step, kStepCondition, "COND", kSecSel, {1, 1, 2}, kHidden, "Trig condition of the selected steps"},
+    {Ref::Step, kStepCondA, "A", kSecSel, {2, 0, 1}, kHidden, "A of A:B"},
+    {Ref::Step, kStepCondB, "B", kSecSel, {2, 1, 1}, kHidden, "B of A:B"},
+    {Ref::Step, kStepNotes, "NOTES", kSecSel, {2, 2, 1}, kHidden, "Notes per step (Poly)"},
+    {Ref::Row, kRowFocus, "ROW", kSecScale, {0, 0, 1}, {0, 0, 1}, "Drum row edited by the lanes and the selection (Up / Down)"},
+    {Ref::Row, kRowLevel, "LVL", kSecScale, {0, 1, 1}, {0, 1, 1}, "Velocity scale of every hit of this row"},
+    {Ref::Row, kRowProbability, "PROB", kSecScale, {0, 2, 1}, {0, 2, 1}, "Probability scale of every hit of this row"},
+};
+
+// A Drum track shows its row settings instead of the root and scale (which its rows ignore).
+bool shownFor(const FieldDef& f, bool drum)
 {
-    const float w = kCellW * f.span + (f.span - 1) * (kColX[1] - kColX[0] - kCellW);
-    return {{kColX[f.col], f.y}, {w, kCellH}};
+    return f.ref == Ref::Global ? !drum : f.ref == Ref::Row ? drum : true;
 }
 
-int fieldAt(Vec p)
+// Settings a Drum track ignores: drawn dimmed.
+bool appliesTo(const FieldDef& f, bool drum)
 {
+    if (!drum)
+        return true;
+    if (f.ref == Ref::Track)
+        return f.id != kTrackOctave && f.id != kTrackTranspose && f.id != kTrackFollow && f.id != kTrackRange &&
+               f.id != kTrackVoices;
+    return !(f.ref == Ref::Step && f.id == kStepNotes);
+}
+constexpr int kNumFields = int(sizeof(kFields) / sizeof(kFields[0]));
+
+const Layout& layoutFor(bool expert) { return expert ? kExpert : kMain; }
+
+float sectionY(const Layout& l, Section s)
+{
+    switch (s) {
+    case kSecTrack: return l.track;
+    case kSecScale: return l.scale;
+    case kSecGen: return l.gen;
+    default: return l.sel;
+    }
+}
+
+// Where the field sits in this view; false if the view leaves it out.
+bool fieldRect(const FieldDef& f, bool expert, bool drum, math::Rect& r)
+{
+    const Place& p = expert ? f.expert : f.main;
+    if (p.row < 0 || !shownFor(f, drum))
+        return false;
+    const float w = kCellW * p.span + (p.span - 1) * (kColX[1] - kColX[0] - kCellW);
+    r = {{kColX[p.col], sectionY(layoutFor(expert), f.section) + p.row * kRowH}, {w, kCellH}};
+    return true;
+}
+
+int fieldAt(Vec p, bool expert, bool drum)
+{
+    math::Rect r;
     for (int i = 0; i < kNumFields; ++i)
-        if (fieldRect(kFields[i]).contains(p))
+        if (fieldRect(kFields[i], expert, drum, r) && r.contains(p))
             return i;
     return -1;
 }
@@ -74,21 +129,23 @@ const math::Rect kClockRect{{174, 2}, {52, 14}};
 const math::Rect kPpqnRect{{174, 18}, {52, 14}};
 
 enum Button { kNewSeed, kEuclid, kPulses, kRotation, kClear, kNumButtons };
-const math::Rect kButtonRects[kNumButtons] = {
-    {{4, 192}, {54, 16}}, {{60, 192}, {52, 16}}, {{114, 192}, {34, 16}}, {{150, 192}, {34, 16}}, {{186, 192}, {40, 16}},
-};
+math::Rect buttonRect(int i, bool expert)
+{
+    static const float x[kNumButtons] = {4, 60, 114, 150, 186}, w[kNumButtons] = {54, 52, 34, 34, 40};
+    return {{x[i], layoutFor(expert).buttons}, {w[i], 16}};
+}
 const char* const kButtonHints[kNumButtons] = {
     "New random seed: regenerates the track (undo restores it)",
-    "Euclidean rhythm over the loop, on the bottom row (key E)",
+    "Euclidean rhythm over the loop, on the bottom row; Drum: on the focused row (key E)",
     "Euclid hits: drag",
     "Euclid rotation: drag",
     "Clear the selection, or the whole loop (key Delete with a selection)",
 };
 
-int buttonAt(Vec p)
+int buttonAt(Vec p, bool expert)
 {
     for (int i = 0; i < kNumButtons; ++i)
-        if (kButtonRects[i].contains(p))
+        if (buttonRect(i, expert).contains(p))
             return i;
     return -1;
 }
@@ -99,6 +156,55 @@ constexpr int kHoverTempo = -2, kHoverPpqn = -3;
 } // namespace
 
 Inspector::Inspector() { box.size = Vec(kW, kH); }
+
+bool Inspector::expert() const { return module && module->params[Tetrad::EXPERT_PARAM].getValue() > 0.5f; }
+
+bool Inspector::drum() const { return trackValue(module, ui->view.track, kTrackMode) == kModeDrum; }
+
+int Inspector::hitRow() const { return drum() ? clamp(ui->view.focusRow, 0, kDrumRows - 1) : -1; }
+
+std::string Inspector::rowText(int field) const
+{
+    const RowSettings& rs = ui->bank.tracks[ui->view.track].rows[clamp(ui->view.focusRow, 0, kDrumRows - 1)];
+    switch (field) {
+    case kRowFocus: return string::f("%d", ui->view.focusRow + 1);
+    case kRowLevel: return string::f("%d%%", rs.level);
+    default: return string::f("%d%%", rs.probability);
+    }
+}
+
+// The focused row (UI state) or one of its settings (in the patterns, so undo covers them).
+void Inspector::nudgeRow(int field, int delta)
+{
+    if (field == kRowFocus) {
+        ui->view.focusRow = clamp(ui->view.focusRow + delta, 0, kDrumRows - 1);
+        return;
+    }
+    const int t = ui->view.track, r = clamp(ui->view.focusRow, 0, kDrumRows - 1);
+    module->editPatterns([&](PatternBank& b) {
+        RowSettings& rs = b.tracks[t].rows[r];
+        uint8_t& v = field == kRowLevel ? rs.level : rs.probability;
+        const int next = clamp(int(v) + delta, 0, field == kRowLevel ? 200 : 100);
+        if (next == v)
+            return false;
+        v = uint8_t(next);
+        return true;
+    });
+}
+
+void Inspector::setRow(int field, int value)
+{
+    if (field == kRowFocus) {
+        ui->view.focusRow = clamp(value, 0, kDrumRows - 1);
+        return;
+    }
+    const int t = ui->view.track, r = clamp(ui->view.focusRow, 0, kDrumRows - 1);
+    editWithUndo(module, field == kRowLevel ? "row level" : "row probability", [&](PatternBank& b) {
+        RowSettings& rs = b.tracks[t].rows[r];
+        (field == kRowLevel ? rs.level : rs.probability) = uint8_t(value);
+        return true;
+    });
+}
 
 int Inspector::paramId(int field) const
 {
@@ -113,10 +219,13 @@ std::string Inspector::stepText(int field) const
     const int first = firstStep(ui->selection);
     if (first < 0)
         return "-";
-    int lo = stepField(steps[first], field), hi = lo;
+    const int row = hitRow();
+    if (row >= 0 && field == kStepNotes)
+        return "-";
+    int lo = stepField(steps[first], field, row), hi = lo;
     for (int i = first + 1; i < kMaxSteps; ++i)
         if (ui->selection[size_t(i)]) {
-            const int v = stepField(steps[i], field);
+            const int v = stepField(steps[i], field, row);
             lo = std::min(lo, v);
             hi = std::max(hi, v);
         }
@@ -127,7 +236,8 @@ std::string Inspector::stepText(int field) const
         case kStepRatchet: return string::f("x%d", v);
         case kStepCondition:
             if (v == kCondAB || v == kCondNotAB)
-                return string::f("%s%d:%d", v == kCondNotAB ? "NOT " : "", steps[first].condA, steps[first].condB);
+                return string::f("%s%d:%d", v == kCondNotAB ? "NOT " : "", stepField(steps[first], kStepCondA, row),
+                                 stepField(steps[first], kStepCondB, row));
             return conditionName(v);
         default: return string::f("%d", v);
         }
@@ -166,18 +276,23 @@ void Inspector::drawLayer(const DrawArgs& args, int layer)
     fillRect(vg, {{2, 36}, {4, 14}}, tc, 1.f);
     text(vg, 10, 43, string::f("TRACK %d%s", t + 1, on ? "" : "  · MUTED"), on ? kInk : kTextDim, 10.f);
 
-    text(vg, 6, 152, "GENERATOR", kTextDim, 8.f);
+    const bool ex = expert();
+    const Layout& lay = layoutFor(ex);
+    text(vg, 6, lay.genLabel, "GENERATOR", kTextDim, 8.f);
     const int selected = int(ui->selection.count());
-    text(vg, 6, 216, selected ? string::f("SELECTION · %d STEP%s", selected, selected > 1 ? "S" : "")
+    text(vg, 6, lay.selLabel, selected ? string::f("SELECTION · %d STEP%s", selected, selected > 1 ? "S" : "")
                               : "SELECTION · Shift+drag the grid",
          selected ? kInk : kTextDim, 8.f);
 
     char buf[32];
+    const bool isDrum = drum();
     for (int i = 0; i < kNumFields; ++i) {
         const FieldDef& f = kFields[i];
-        const math::Rect r = fieldRect(f);
+        math::Rect r;
+        if (!fieldRect(f, ex, isDrum, r))
+            continue;
         const bool isStep = f.ref == Ref::Step;
-        const bool enabled = !isStep || selected;
+        const bool enabled = (!isStep || selected) && appliesTo(f, isDrum);
         const bool active = i == hoverField || i == dragField;
         fillRect(vg, r, active && enabled ? kButtonHover : kField, 2.f);
         text(vg, r.pos.x + 3, r.pos.y + r.size.y / 2, f.label, enabled ? kTextDim : kTextOff, 8.f);
@@ -185,6 +300,8 @@ void Inspector::drawLayer(const DrawArgs& args, int layer)
         if (isStep) {
             if (selected)
                 v = stepText(f.id);
+        } else if (f.ref == Ref::Row) {
+            v = rowText(f.id);
         } else {
             const int id = paramId(i);
             formatParam(id, paramValue(module, id), buf, sizeof(buf));
@@ -199,13 +316,16 @@ void Inspector::drawLayer(const DrawArgs& args, int layer)
     const std::string labels[kNumButtons] = {"NEW SEED", "EUCLID", string::f("%d HITS", ui->euclidPulses[t]),
                                              string::f("ROT %d", ui->euclidRotation[t]), selected ? "CLR SEL" : "CLEAR"};
     for (int i = 0; i < kNumButtons; ++i) {
-        fillRect(vg, kButtonRects[i], hoverButton == i ? kButtonHover : kButton, 2.f);
-        centered(vg, kButtonRects[i], labels[i], kText, 8.5f);
+        const math::Rect r = buttonRect(i, ex);
+        fillRect(vg, r, hoverButton == i ? kButtonHover : kButton, 2.f);
+        centered(vg, r, labels[i], kText, 8.5f);
     }
 
-    // Help line: what the pointer can do here.
+    // Help line: what the pointer can do here (nothing drawn before the first hover: an empty
+    // bar looked like a text field).
     const math::Rect hl{{2, kH - 15}, {kW - 4, 13}};
-    fillRect(vg, hl, kField, 2.f);
+    if (!ui->hint.empty())
+        fillRect(vg, hl, kField, 2.f);
     nvgSave(vg);
     nvgScissor(vg, hl.pos.x, hl.pos.y, hl.size.x, hl.size.y);
     text(vg, hl.pos.x + 3, hl.pos.y + hl.size.y / 2, ui->hint, kTextDim, 7.5f);
@@ -219,10 +339,14 @@ void Inspector::nudgeField(int field, int delta)
     if (!module)
         return;
     const FieldDef& f = kFields[field];
+    if (f.ref == Ref::Row) {
+        nudgeRow(f.id, delta);
+        return;
+    }
     if (f.ref == Ref::Step) {
-        const int t = ui->view.track;
+        const int t = ui->view.track, row = hitRow();
         const StepMask sel = ui->selection;
-        module->editPatterns([&](PatternBank& b) { return adjustSteps(b, t, sel, f.id, delta); });
+        module->editPatterns([&](PatternBank& b) { return adjustSteps(b, t, sel, f.id, delta, row); });
         return;
     }
     const int id = paramId(field);
@@ -235,14 +359,18 @@ void Inspector::nudgeField(int field, int delta)
 void Inspector::resetField(int field)
 {
     const FieldDef& f = kFields[field];
+    if (f.ref == Ref::Row) {
+        setRow(f.id, f.id == kRowFocus ? 0 : 100);
+        return;
+    }
     if (f.ref != Ref::Step) {
         const int id = paramId(field);
         setParamWithUndo(module, id, float(paramTable()[id].def));
         return;
     }
-    const int t = ui->view.track;
+    const int t = ui->view.track, row = hitRow();
     const StepMask sel = ui->selection;
-    editWithUndo(module, "reset steps", [&](PatternBank& b) { return resetSteps(b, t, sel, f.id); });
+    editWithUndo(module, "reset steps", [&](PatternBank& b) { return resetSteps(b, t, sel, f.id, row); });
 }
 
 // Every value of a list, or a slider and a typed entry for numbers.
@@ -252,8 +380,24 @@ void Inspector::fieldMenu(int field)
         return;
     const FieldDef& f = kFields[field];
     Tetrad* m = module;
+    if (f.ref == Ref::Row) {
+        ui::Menu* menu = createMenu();
+        menu->addChild(createMenuLabel(f.hint));
+        const int which = f.id;
+        std::vector<int> values;
+        if (which == kRowFocus)
+            values = {0, 1, 2, 3, 4, 5, 6, 7};
+        else if (which == kRowLevel)
+            values = {25, 50, 75, 100, 125, 150};
+        else
+            values = {10, 25, 50, 75, 90, 100};
+        for (int v : values)
+            menu->addChild(createMenuItem(which == kRowFocus ? string::f("Row %d", v + 1) : string::f("%d%%", v), "",
+                                          [=] { setRow(which, v); }));
+        return;
+    }
     if (f.ref == Ref::Step) {
-        if (ui->selection.none())
+        if (ui->selection.none() || !appliesTo(f, drum()))
             return;
         std::vector<std::pair<std::string, int>> choices;
         switch (f.id) {
@@ -292,10 +436,10 @@ void Inspector::fieldMenu(int field)
         ui::Menu* menu = createMenu();
         menu->addChild(createMenuLabel(f.hint));
         const StepMask sel = ui->selection;
-        const int t = ui->view.track, which = f.id;
+        const int t = ui->view.track, which = f.id, row = hitRow();
         for (const auto& [label, v] : choices)
             menu->addChild(createMenuItem(label, "", [=] {
-                editWithUndo(m, "edit steps", [&](PatternBank& b) { return setSteps(b, t, sel, which, v); });
+                editWithUndo(m, "edit steps", [&](PatternBank& b) { return setSteps(b, t, sel, which, v, row); });
             }));
         return;
     }
@@ -329,10 +473,7 @@ void Inspector::fieldMenu(int field)
             ui::TextField::onSelectKey(e);
         }
     };
-    auto* slider = new ui::Slider;
-    slider->quantity = q;
-    slider->box.size.x = 200.f;
-    menu->addChild(slider);
+    menu->addChild(new ParamSlider(m, id, 200.f));
     auto* entry = new ValueEntry;
     entry->module = m;
     entry->paramId = id;
@@ -371,7 +512,7 @@ void Inspector::onButton(const ButtonEvent& e)
     if (e.action != GLFW_PRESS)
         return OpaqueWidget::onButton(e);
     const Vec p = e.pos;
-    const int field = fieldAt(p);
+    const int field = fieldAt(p, expert(), drum());
     if (e.button == GLFW_MOUSE_BUTTON_RIGHT) {
         if (field >= 0)
             fieldMenu(field);
@@ -394,12 +535,13 @@ void Inspector::onButton(const ButtonEvent& e)
         return;
 
     if (field >= 0) {
-        const bool isStep = kFields[field].ref == Ref::Step;
-        if (isStep && ui->selection.none())
+        const FieldDef& f = kFields[field];
+        const bool isStep = f.ref == Ref::Step;
+        if ((isStep && ui->selection.none()) || !appliesTo(f, drum()))
             return;
         dragField = field;
         dragKind = Drag::Field;
-        if (isStep)
+        if (isStep || f.ref == Ref::Row)
             gesture.begin(module);
         else
             dragOld = module->params[paramId(field)].getValue();
@@ -411,7 +553,7 @@ void Inspector::onButton(const ButtonEvent& e)
     } else if (kPpqnRect.contains(p)) {
         ppqnMenu();
     } else {
-        const int b = buttonAt(p);
+        const int b = buttonAt(p, expert());
         if (b == kPulses || b == kRotation)
             dragKind = b == kPulses ? Drag::Pulses : Drag::Rotation;
         else
@@ -448,7 +590,12 @@ void Inspector::onDragMove(const DragMoveEvent& e)
 void Inspector::onDragEnd(const DragEndEvent& e)
 {
     if (dragKind == Drag::Field) {
-        if (kFields[dragField].ref == Ref::Step) {
+        const FieldDef& f = kFields[dragField];
+        if (f.ref == Ref::Row) {
+            gesture.end(module, f.id == kRowLevel ? "row level" : "row probability");
+            if (!dragMoved && f.id == kRowFocus)
+                fieldMenu(dragField);   // a click lists the rows
+        } else if (f.ref == Ref::Step) {
             gesture.end(module, "edit steps");
         } else if (dragMoved) {
             const int id = paramId(dragField);
@@ -476,9 +623,11 @@ void Inspector::onDoubleClick(const DoubleClickEvent& e)
     if (!module)
         return;
     // Lists and switches act on the first click already; their default is in their list.
-    const int field = fieldAt(lastHover);
+    const int field = fieldAt(lastHover, expert(), drum());
     const bool isStep = field >= 0 && kFields[field].ref == Ref::Step;
-    if (isStep ? ui->selection.any() : field >= 0 && paramTable()[paramId(field)].type == ParamType::Int)
+    const bool isRow = field >= 0 && kFields[field].ref == Ref::Row;
+    if (isRow ? kFields[field].id != kRowFocus
+              : isStep ? ui->selection.any() : field >= 0 && paramTable()[paramId(field)].type == ParamType::Int)
         resetField(field);
     else if (kTempoRect.contains(lastHover) && !module->externalClock.load(std::memory_order_relaxed))
         setParamWithUndo(module, Tetrad::TEMPO_PARAM, kDefaultTempo);
@@ -487,11 +636,13 @@ void Inspector::onDoubleClick(const DoubleClickEvent& e)
 void Inspector::onHover(const HoverEvent& e)
 {
     lastHover = e.pos;
-    hoverField = fieldAt(e.pos);
-    hoverButton = buttonAt(e.pos);
+    hoverField = fieldAt(e.pos, expert(), drum());
+    hoverButton = buttonAt(e.pos, expert());
     if (hoverField >= 0) {
         const FieldDef& f = kFields[hoverField];
-        const ParamType type = f.ref == Ref::Step ? ParamType::Int : paramTable()[paramId(hoverField)].type;
+        const ParamType type = f.ref == Ref::Row ? (f.id == kRowFocus ? ParamType::Enum : ParamType::Int)
+                               : f.ref == Ref::Step ? ParamType::Int
+                                                    : paramTable()[paramId(hoverField)].type;
         ui->hint = std::string(f.hint) + (type == ParamType::Bool   ? " · click: toggle"
                                           : type == ParamType::Enum ? " · click: list"
                                                                     : " · drag · dbl: default · right: values");

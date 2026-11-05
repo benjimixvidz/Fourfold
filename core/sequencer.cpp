@@ -34,10 +34,8 @@ void Sequencer::reset(double sampleRate)
     clock_ = 0;
     segStart_ = 0;
     numActive_ = 0;
-    for (int t = 0; t < kNumTracks; ++t) {
+    for (int t = 0; t < kNumTracks; ++t)
         playhead_[t] = 0;
-        drunkPos_[t] = 0;
-    }
     stopPlayback();
 }
 
@@ -47,9 +45,26 @@ void Sequencer::stopPlayback()
     nextValid_ = false;
     for (int t = 0; t < kNumTracks; ++t) {
         lastStep_[t] = INT64_MIN;
-        ratchet_[t] = Ratchet{};
+        for (int r = 0; r < kDrumRows; ++r) {
+            ratchet_[t][r] = Ratchet{};
+            lastCondition_[t][r] = false;
+        }
         firstLoop_[t] = INT64_MIN;
-        lastCondition_[t] = false;
+        drunkPos_[t] = 0;
+        drunkRestart_[t] = true;
+    }
+}
+
+void Sequencer::rewind()
+{
+    nextValid_ = false;
+    for (int t = 0; t < kNumTracks; ++t) {
+        for (int r = 0; r < kDrumRows; ++r) {
+            ratchet_[t][r] = Ratchet{};
+            lastCondition_[t][r] = false;
+        }
+        firstLoop_[t] = INT64_MIN;
+        drunkRestart_[t] = true;
     }
 }
 
@@ -98,6 +113,11 @@ int Sequencer::nextIndex(int track, int64_t k, int length)
     case kDirRandom:
         return int(mix64(uint64_t(k) ^ (uint64_t(uint32_t(ts.gen.seed)) << 32)) % uint64_t(length));
     case kDirDrunk: {
+        if (drunkRestart_[track]) {
+            drunkRestart_[track] = false;
+            drunkPos_[track] = 0;
+            return 0;
+        }
         // 50 % forward, 25 % repeat, 25 % back.
         const int r = rng_.percent();
         int pos = drunkPos_[track] + (r < 50 ? 1 : (r < 75 ? 0 : -1));
@@ -164,18 +184,19 @@ void Sequencer::render(const TransportState& tr, uint32_t firstFrame, uint32_t n
     int numTriggers = 0;
     for (int t = 0; t < kNumTracks; ++t) {
         const TrackSettings& ts = settings_.tracks[t];
-        Ratchet& rt = ratchet_[t];
-        // A muted track keeps running (playhead, Drunk walk, loop count) but stays silent.
-        if (!ts.enabled)
-            rt.remaining = 0;
-
-        // Repeats of a ratcheted step started in an earlier block (dropped after a seek).
-        if (rt.remaining > 0 && (b0 < rt.nextBeat - rt.interval - epsilon || b0 >= rt.stepEnd))
-            rt.remaining = 0;
-        double hit = rt.nextBeat;
-        for (int r = 0; r < rt.remaining && hit < b1 - epsilon; ++r, hit += rt.interval)
-            if (hit >= b0 - epsilon)
-                addTrigger(numTriggers, {frameFor(hit, b0, beatsPerFrame, numFrames), t, lastStep_[t], hit, true});
+        // Repeats of a ratcheted step started in an earlier block (dropped after a seek). A muted
+        // track keeps running (playhead, Drunk walk, loop count) but stays silent.
+        for (int row = 0; row < kDrumRows; ++row) {
+            Ratchet& rt = ratchet_[t][row];
+            if (!ts.enabled)
+                rt.remaining = 0;
+            if (rt.remaining > 0 && (b0 < rt.nextBeat - rt.interval - epsilon || b0 >= rt.stepEnd))
+                rt.remaining = 0;
+            double hit = rt.nextBeat;
+            for (int r = 0; r < rt.remaining && hit < b1 - epsilon; ++r, hit += rt.interval)
+                if (hit >= b0 - epsilon)
+                    addTrigger(numTriggers, {frameFor(hit, b0, beatsPerFrame, numFrames), t, lastStep_[t], hit, true, row});
+        }
 
         // Step starts. Swing can move an odd step by up to 0.8 step either way.
         const int64_t kHi = int64_t(std::floor(b1 / ts.stepBeats)) + 1;
@@ -184,7 +205,7 @@ void Sequencer::render(const TransportState& tr, uint32_t firstFrame, uint32_t n
             const double start = stepStart(ts, k);
             if (start < b0 - epsilon || start >= b1 - epsilon || k == lastStep_[t])
                 continue;
-            addTrigger(numTriggers, {frameFor(start, b0, beatsPerFrame, numFrames), t, k, start, false});
+            addTrigger(numTriggers, {frameFor(start, b0, beatsPerFrame, numFrames), t, k, start, false, 0});
         }
     }
 
@@ -221,8 +242,9 @@ void Sequencer::updateNextEvent(double b1, double epsilon)
             if (start >= b1 - epsilon && start < next)
                 next = start;
         }
-        if (ratchet_[t].remaining > 0)
-            next = std::min(next, ratchet_[t].nextBeat);
+        for (const Ratchet& rt : ratchet_[t])
+            if (rt.remaining > 0)
+                next = std::min(next, rt.nextBeat);
     }
     uint64_t due = UINT64_MAX;
     for (int i = 0; i < numActive_; ++i)
@@ -237,21 +259,27 @@ void Sequencer::startStep(const Trigger& trig, double b0, double beatsPerFrame, 
 {
     const int track = trig.track;
     const TrackSettings& ts = settings_.tracks[track];
-    Ratchet& rt = ratchet_[track];
+    const bool drum = ts.mode == kModeDrum;
 
     if (trig.ratchetHit) {
+        Ratchet& rt = ratchet_[track][trig.row];
         if (rt.remaining <= 0)
             return;
         --rt.remaining;
         rt.nextBeat += rt.interval;
         const Step& step = bank_.tracks[track].steps[rt.index];
-        playNotes(track, rt.index, rt.interval * ts.gate / 100.0 * step.gate / 100.0, trig.frame, firstFrame,
-                  beatsPerFrame, sink);
+        const int stepGate = drum ? step.drum[trig.row].gate : step.gate;
+        const double gateBeats = rt.interval * ts.gate / 100.0 * stepGate / 100.0;
+        if (drum)
+            playHit(track, rt.index, trig.row, gateBeats, trig.frame, firstFrame, beatsPerFrame, sink);
+        else
+            playNotes(track, rt.index, gateBeats, trig.frame, firstFrame, beatsPerFrame, sink);
         return;
     }
 
     lastStep_[track] = trig.step;
-    rt.remaining = 0;   // a new step always ends the previous one's repeats
+    for (Ratchet& rt : ratchet_[track])
+        rt.remaining = 0;   // a new step always ends the previous one's repeats
     const int length = std::clamp(ts.length, 1, kMaxSteps);
     // The loop window starts at `start` and wraps around the 128 steps.
     const int index = (std::clamp(ts.start, 0, kMaxSteps - 1) + nextIndex(track, trig.step, length)) % kMaxSteps;
@@ -262,9 +290,15 @@ void Sequencer::startStep(const Trigger& trig, double b0, double beatsPerFrame, 
     const int64_t loop = floorDiv(trig.step, period);
     if (firstLoop_[track] == INT64_MIN)
         firstLoop_[track] = loop;
+    if (!ts.enabled)
+        return;
+    if (drum) {
+        startDrumStep(trig, index, loop, b0, beatsPerFrame, numFrames, firstFrame, numTriggers, current, sink);
+        return;
+    }
 
     const Step& step = bank_.tracks[track].steps[index];
-    if (!ts.enabled || !step.active || !conditionPasses(track, step, loop))
+    if (!step.active || !conditionPasses(track, 0, step.condition, step.condA, step.condB, loop))
         return;
     const int probability = step.probability * std::clamp(ts.chance, 0, 100) / 100;
     if (probability < 100 && rng_.percent() >= probability)
@@ -278,19 +312,60 @@ void Sequencer::startStep(const Trigger& trig, double b0, double beatsPerFrame, 
               sink);
     if (hits == 1)
         return;
-
+    Ratchet& rt = ratchet_[track][0];
     rt.remaining = hits - 1;
     rt.index = index;
     rt.interval = interval;
     rt.nextBeat = trig.beat + interval;
     rt.stepEnd = trig.beat + duration;
+    queueRepeats(track, 0, trig.step, b0, beatsPerFrame, numFrames, numTriggers, current);
+}
 
-    // Repeats falling inside this block join the pending triggers, keeping them sorted.
+// Every row with a hit plays on its own: its condition, its probability (scaled by the row's and
+// the track's), its ratchets.
+void Sequencer::startDrumStep(const Trigger& trig, int index, int64_t loop, double b0, double beatsPerFrame,
+                              uint32_t numFrames, uint32_t firstFrame, int& numTriggers, int current, NoteSink& sink)
+{
+    const int track = trig.track;
+    const TrackSettings& ts = settings_.tracks[track];
+    const TrackPattern& tp = bank_.tracks[track];
+    const Step& step = tp.steps[index];
+    const double duration = stepStart(ts, trig.step + 1) - trig.beat;
+    for (int row = 0; row < kDrumRows; ++row) {
+        if (!(step.hits & (1u << row)) || tp.rows[row].mute)
+            continue;
+        const DrumHit& h = step.drum[row];
+        if (!conditionPasses(track, row, h.condition, h.condA, h.condB, loop))
+            continue;
+        const int probability = h.probability * tp.rows[row].probability / 100 * std::clamp(ts.chance, 0, 100) / 100;
+        if (probability < 100 && rng_.percent() >= probability)
+            continue;
+        const int hits = std::clamp(int(h.ratchet), 1, kMaxRatchet);
+        const double interval = duration / hits;
+        playHit(track, index, row, interval * ts.gate / 100.0 * h.gate / 100.0, trig.frame, firstFrame, beatsPerFrame,
+                sink);
+        if (hits == 1)
+            continue;
+        Ratchet& rt = ratchet_[track][row];
+        rt.remaining = hits - 1;
+        rt.index = index;
+        rt.interval = interval;
+        rt.nextBeat = trig.beat + interval;
+        rt.stepEnd = trig.beat + duration;
+        queueRepeats(track, row, trig.step, b0, beatsPerFrame, numFrames, numTriggers, current);
+    }
+}
+
+// Repeats falling inside this block join the pending triggers, keeping them sorted.
+void Sequencer::queueRepeats(int track, int row, int64_t step, double b0, double beatsPerFrame, uint32_t numFrames,
+                             int& numTriggers, int current)
+{
+    const Ratchet& rt = ratchet_[track][row];
     const double b1 = b0 + numFrames * beatsPerFrame;
     const double epsilon = 1e-3 * beatsPerFrame;
     double hit = rt.nextBeat;
-    for (int r = 0; r < rt.remaining && hit < b1 - epsilon && numTriggers < kMaxTriggers; ++r, hit += interval) {
-        const Trigger t{frameFor(hit, b0, beatsPerFrame, numFrames), track, trig.step, hit, true};
+    for (int r = 0; r < rt.remaining && hit < b1 - epsilon && numTriggers < kMaxTriggers; ++r, hit += rt.interval) {
+        const Trigger t{frameFor(hit, b0, beatsPerFrame, numFrames), track, step, hit, true, row};
         int j = numTriggers++;
         while (j > current + 1 && triggers_[j - 1].frame > t.frame) {
             triggers_[j] = triggers_[j - 1];
@@ -300,12 +375,12 @@ void Sequencer::startStep(const Trigger& trig, double b0, double beatsPerFrame, 
     }
 }
 
-bool Sequencer::conditionPasses(int track, const Step& step, int64_t loop)
+bool Sequencer::conditionPasses(int track, int row, uint8_t condition, uint8_t condA, uint8_t condB, int64_t loop)
 {
-    const int b = std::clamp(int(step.condB), 1, 8);
-    const int a = std::clamp(int(step.condA), 1, b);
+    const int b = std::clamp(int(condB), 1, 8);
+    const int a = std::clamp(int(condA), 1, b);
     bool result;
-    switch (step.condition) {
+    switch (condition) {
     case kCondAB:
         result = positiveMod(loop, b) == a - 1;
         break;
@@ -319,13 +394,13 @@ bool Sequencer::conditionPasses(int track, const Step& step, int64_t loop)
         result = loop != firstLoop_[track];
         break;
     case kCondPre:
-        return lastCondition_[track];
+        return lastCondition_[track][row];
     case kCondNotPre:
-        return !lastCondition_[track];
+        return !lastCondition_[track][row];
     default:
         return true;
     }
-    lastCondition_[track] = result;
+    lastCondition_[track][row] = result;
     return result;
 }
 
@@ -375,6 +450,35 @@ void Sequencer::playNotes(int track, int index, double gateBeats, uint32_t local
         active_[numActive_++] = {now + gateFrames, uint8_t(track), uint8_t(key), step.degree[v]};
         sink.emit({frame, true, uint8_t(track), uint8_t(key), velocity / 127.0f, step.degree[v]});
     }
+}
+
+// Drum: row n plays key 60 + n (0 V + n semitones on V/OCT, channel n + 1), its velocity scaled by
+// the track and the row's level. A hit on a row still sounding closes it first.
+void Sequencer::playHit(int track, int index, int row, double gateBeats, uint32_t localFrame, uint32_t firstFrame,
+                        double beatsPerFrame, NoteSink& sink)
+{
+    const TrackSettings& ts = settings_.tracks[track];
+    const TrackPattern& tp = bank_.tracks[track];
+    const DrumHit& h = tp.steps[index].drum[row];
+    const uint32_t frame = firstFrame + localFrame;
+    const uint64_t now = segStart_ + localFrame;
+    const uint8_t key = uint8_t(60 + row);
+    for (int i = numActive_ - 1; i >= 0; --i)
+        if (active_[i].track == track && active_[i].key == key) {
+            releaseAt(i, frame, sink);
+            break;
+        }
+    if (numActive_ == kMaxActive) {
+        int oldest = 0;
+        for (int i = 1; i < numActive_; ++i)
+            if (active_[i].due < active_[oldest].due)
+                oldest = i;
+        releaseAt(oldest, frame, sink);
+    }
+    const uint64_t gateFrames = std::max<uint64_t>(1, uint64_t(std::llround(gateBeats / beatsPerFrame)));
+    const int velocity = std::clamp(h.velocity * ts.velocity / 100 * tp.rows[row].level / 100, 1, 127);
+    active_[numActive_++] = {now + gateFrames, uint8_t(track), key, int8_t(row)};
+    sink.emit({frame, true, uint8_t(track), key, velocity / 127.0f, int8_t(row)});
 }
 
 void Sequencer::releaseDue(uint64_t limit, bool inclusive, uint32_t firstFrame, NoteSink& sink)

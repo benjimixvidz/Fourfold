@@ -33,11 +33,45 @@ bool hasDegree(const Step& s, int degree, bool poly)
     return std::find(s.degree, s.degree + n, degree) != s.degree + n;
 }
 
-bool matchesChoice(const Step& s, const ConditionChoice& c)
+template <typename T>
+bool matchesChoice(const T& s, const ConditionChoice& c)
 {
     if (s.condition != c.condition)
         return false;
     return c.condition != kCondAB || (s.condA == c.a && s.condB == c.b);
+}
+
+// Bar-graph lanes, on a step (Mono, Poly) or a drum hit: what a level shows, what a press sets.
+template <typename T>
+bool levelLit(const T& s, int lane, int level)
+{
+    switch (lane) {
+    case kLaneVelocity: return s.velocity >= kVelocityLevels[level];
+    case kLaneGate: return s.gate >= kGateLevels[level];
+    case kLaneProbability: return s.probability >= kProbabilityLevels[level];
+    case kLaneRatchet: return s.ratchet >= level + 1;
+    case kLaneCondition: return matchesChoice(s, kConditionChoices[level]);
+    default: return false;
+    }
+}
+
+template <typename T>
+bool setLevel(T& s, int lane, int level)
+{
+    switch (lane) {
+    case kLaneVelocity: s.velocity = uint8_t(kVelocityLevels[level]); return true;
+    case kLaneGate: s.gate = uint8_t(kGateLevels[level]); return true;
+    case kLaneProbability: s.probability = uint8_t(kProbabilityLevels[level]); return true;
+    case kLaneRatchet: s.ratchet = uint8_t(level + 1); return true;
+    case kLaneCondition: {
+        const ConditionChoice& c = kConditionChoices[level];
+        s.condition = c.condition;
+        s.condA = c.a;
+        s.condB = c.b;
+        return true;
+    }
+    default: return false;
+    }
 }
 
 } // namespace
@@ -47,7 +81,7 @@ int stepForColumn(const GridView& view, int col)
     return std::clamp(view.page, 0, kGridPages - 1) * kGridCols + std::clamp(col, 0, kGridCols - 1);
 }
 
-PadInfo padInfo(const PatternBank& bank, const GridView& view, bool poly, int scaleSize, int start, int length,
+PadInfo padInfo(const PatternBank& bank, const GridView& view, int mode, int scaleSize, int start, int length,
                 int col, int row)
 {
     const int index = stepForColumn(view, col);
@@ -55,44 +89,44 @@ PadInfo padInfo(const PatternBank& bank, const GridView& view, bool poly, int sc
     const int level = levelIndex(row);
 
     PadInfo info{};
-    info.active = s.active;
     info.inLoop = (index - start + kMaxSteps) % kMaxSteps < length;
-    switch (view.lane) {
-    case kLaneNote: {
+    if (mode == kModeDrum) {
+        const int focus = std::clamp(view.focusRow, 0, kDrumRows - 1);
+        if (view.lane == kLaneNote) {
+            info.lit = info.active = s.hits & (1u << level);
+        } else {
+            info.active = s.hits & (1u << focus);
+            info.lit = levelLit(s.drum[focus], view.lane, level);
+        }
+        return info;
+    }
+    info.active = s.active;
+    if (view.lane == kLaneNote) {
         const int degree = rowDegree(view, row);
-        info.lit = s.active && hasDegree(s, degree, poly);
+        info.lit = s.active && hasDegree(s, degree, mode == kModePoly);
         const int size = scaleSize > 0 ? scaleSize : 7;
         info.rootRow = ((degree % size) + size) % size == 0;
-        break;
-    }
-    case kLaneVelocity:
-        info.lit = s.velocity >= kVelocityLevels[level];
-        break;
-    case kLaneGate:
-        info.lit = s.gate >= kGateLevels[level];
-        break;
-    case kLaneProbability:
-        info.lit = s.probability >= kProbabilityLevels[level];
-        break;
-    case kLaneRatchet:
-        info.lit = s.ratchet >= level + 1;
-        break;
-    case kLaneCondition:
-        info.lit = matchesChoice(s, kConditionChoices[level]);
-        break;
-    default:
-        break;
+    } else {
+        info.lit = levelLit(s, view.lane, level);
     }
     return info;
 }
 
-bool pressPad(PatternBank& bank, const GridView& view, bool poly, int col, int row)
+bool pressPad(PatternBank& bank, const GridView& view, int mode, int col, int row)
 {
     if (col < 0 || col >= kGridCols || row < 0 || row >= kGridRows)
         return false;
     Step& s = bank.tracks[std::clamp(view.track, 0, kNumTracks - 1)].steps[stepForColumn(view, col)];
     const int level = levelIndex(row);
+    const bool poly = mode == kModePoly;
 
+    if (mode == kModeDrum) {
+        if (view.lane == kLaneNote) {
+            s.hits ^= uint8_t(1u << level);
+            return true;
+        }
+        return setLevel(s.drum[std::clamp(view.focusRow, 0, kDrumRows - 1)], view.lane, level);
+    }
     switch (view.lane) {
     case kLaneNote: {
         const int degree = std::clamp(rowDegree(view, row), -100, 100);
@@ -132,36 +166,20 @@ bool pressPad(PatternBank& bank, const GridView& view, bool poly, int col, int r
         s.numNotes = uint8_t(n + 1);
         return true;
     }
-    case kLaneVelocity:
-        s.velocity = uint8_t(kVelocityLevels[level]);
-        return true;
-    case kLaneGate:
-        s.gate = uint8_t(kGateLevels[level]);
-        return true;
-    case kLaneProbability:
-        s.probability = uint8_t(kProbabilityLevels[level]);
-        return true;
-    case kLaneRatchet:
-        s.ratchet = uint8_t(level + 1);
-        return true;
-    case kLaneCondition: {
-        const ConditionChoice& c = kConditionChoices[level];
-        s.condition = c.condition;
-        s.condA = c.a;
-        s.condB = c.b;
-        return true;
-    }
     default:
-        return false;
+        return setLevel(s, view.lane, level);
     }
 }
 
-const char* rowLabel(const GridView& view, int row, char* buf, int size)
+const char* rowLabel(const GridView& view, int mode, int row, char* buf, int size)
 {
     const int level = levelIndex(row);
     switch (view.lane) {
     case kLaneNote:
-        std::snprintf(buf, size_t(size), "%+d", rowDegree(view, row));
+        if (mode == kModeDrum)
+            std::snprintf(buf, size_t(size), "R%d", level + 1);
+        else
+            std::snprintf(buf, size_t(size), "%+d", rowDegree(view, row));
         break;
     case kLaneVelocity:
         std::snprintf(buf, size_t(size), "%d", kVelocityLevels[level]);

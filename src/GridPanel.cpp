@@ -25,7 +25,7 @@ int wrapStep(int s) { return ((s % kMaxSteps) + kMaxSteps) % kMaxSteps; }
 
 GridPanel::GridPanel() { box.size = Vec(kW, kGridY + kGridRows * kRowH); }
 
-bool GridPanel::poly() const { return trackValue(module, ui->view.track, kTrackMode) == kModePoly; }
+int GridPanel::trackMode() const { return trackValue(module, ui->view.track, kTrackMode); }
 
 int GridPanel::playhead() const
 {
@@ -55,7 +55,8 @@ void GridPanel::drawLayer(const DrawArgs& args, int layer)
         values[i] = paramValue(module, i);
     const Settings settings = settingsFromValues(values);
 
-    // Track tabs: colour + fill when selected; "MUTE" in red when muted.
+    // Track tabs: colour + fill when selected; a muted track's tab is dimmed (tracks 2-4 start
+    // muted: red there read as an error).
     for (int i = 0; i < kNumTracks; ++i) {
         const math::Rect r = trackTab(i);
         const bool on = settings.tracks[i].enabled;
@@ -63,17 +64,25 @@ void GridPanel::drawLayer(const DrawArgs& args, int layer)
         fillRect(vg, r, sel ? kTrackColors[i] : kButton);
         if (!sel)
             fillRect(vg, {r.pos, {3, r.size.y}}, kTrackColors[i], 1.f);
-        const bool trackPoly = settings.tracks[i].mode == kModePoly;
-        centered(vg, r, string::f("T%d %s", i + 1, !on ? "MUTE" : trackPoly ? "POLY" : "MONO"),
-                 sel ? kTextDark : !on ? kMuted : kText, 10.f);
+        static const char* const kModeTags[] = {"MONO", "POLY", "DRUM"};
+        const int m = clamp(settings.tracks[i].mode, 0, 2);
+        centered(vg, r, string::f("T%d %s", i + 1, !on ? "MUTE" : kModeTags[m]),
+                 sel ? kTextDark : !on ? kTextDim : kText, 10.f);
     }
+    // Lane tabs: the chosen one is lit and underlined in amber, not filled, so it does not
+    // compete with the selected track.
     for (int i = 0; i < kLaneCount; ++i) {
         const math::Rect r = laneTab(i);
         const bool sel = i == ui->view.lane;
-        fillRect(vg, r, sel ? kButtonOn : (hoverLane == i ? kButtonHover : kButton));
-        centered(vg, r, kLaneNames[i], sel ? kTextDark : kText, 10.f);
+        fillRect(vg, r, sel || hoverLane == i ? kButtonHover : kButton);
+        // Drum: the Note lane holds the hits; a value lane names the row it shows.
+        const bool drumTrack = settings.tracks[t].mode == kModeDrum;
+        const std::string name = drumTrack && i == kLaneNote ? std::string("HITS")
+                                 : drumTrack && sel ? string::f("%s R%d", kLaneNames[i], ui->view.focusRow + 1)
+                                                    : std::string(kLaneNames[i]);
+        centered(vg, r, name, sel ? kInk : kTextDim, 10.f);
         if (sel)
-            fillRect(vg, {{r.pos.x + 4, r.pos.y + r.size.y - 3}, {r.size.x - 8, 2}}, kTextDark, 1.f);
+            fillRect(vg, {{r.pos.x + 4, r.pos.y + r.size.y - 3}, {r.size.x - 8, 2}}, kBrand, 1.f);
     }
 
     // Overview: loop window, active steps, pages, viewed page, playhead.
@@ -88,12 +97,14 @@ void GridPanel::drawLayer(const DrawArgs& args, int layer)
         nvgRect(vg, ov.pos.x, ov.pos.y + 2, (len - firstPart) * kStepW, ov.size.y - 4);
     nvgFillColor(vg, nvgTransRGBAf(tc, 0.22f));
     nvgFill(vg);
+    // Steps that play: a bar by velocity; on a Drum track, by the number of rows with a hit.
+    const bool drumTrack = settings.tracks[t].mode == kModeDrum;
     nvgBeginPath(vg);
     for (int s = 0; s < kMaxSteps; ++s) {
         const Step& st = bank.tracks[t].steps[s];
-        if (!st.active)
+        if (drumTrack ? !st.hits : !st.active)
             continue;
-        const float h = 4.f + 10.f * st.velocity / 127.f;
+        const float h = drumTrack ? 2.f + 1.5f * float(__builtin_popcount(st.hits)) : 4.f + 10.f * st.velocity / 127.f;
         nvgRect(vg, ov.pos.x + s * kStepW + 0.5f, ov.pos.y + ov.size.y - 3 - h, kStepW - 1.f, h);
     }
     nvgFillColor(vg, tc);
@@ -125,12 +136,16 @@ void GridPanel::drawLayer(const DrawArgs& args, int layer)
         nvgFill(vg);
     }
     const math::Rect fr = followRect();
-    fillRect(vg, fr, ui->follow ? tc : kButton);
-    centered(vg, fr, "F", ui->follow ? kTextDark : kText, 11.f);
+    fillRect(vg, fr, kButton);
+    if (ui->follow)
+        strokeRect(vg, fr, tc, 1.5f, 2.f);
+    centered(vg, fr, "F", ui->follow ? tc : kTextDim, 11.f);
 
     // Grid.
     const int size = scaleSize(settings.global.scale);
-    const bool isPoly = poly();
+    const int trackMode = this->trackMode();
+    const bool drum = trackMode == kModeDrum;
+    const bool isPoly = trackMode == kModePoly;
     const int head = playhead();
     const bool headOnPage = playing() && head / kGridCols == ui->view.page;
     // Pads are sorted by look, then each look is filled in one go.
@@ -140,7 +155,7 @@ void GridPanel::drawLayer(const DrawArgs& args, int layer)
     bool litAtHead[kGridRows] = {};
     for (int row = 0; row < kGridRows; ++row) {
         for (int col = 0; col < kGridCols; ++col) {
-            const PadInfo info = padInfo(bank, ui->view, isPoly, size, start, len, col, row);
+            const PadInfo info = padInfo(bank, ui->view, trackMode, size, start, len, col, row);
             const bool atHead = headOnPage && head % kGridCols == col;
             if (info.lit)
                 look[row][col] = (info.active || ui->view.lane == kLaneNote) ? kLookLit : kLookLitDim;
@@ -148,7 +163,7 @@ void GridPanel::drawLayer(const DrawArgs& args, int layer)
                 look[row][col] = kLookHead;
             else if (!info.inLoop)
                 look[row][col] = kLookOutside;
-            else if (ui->view.lane == kLaneNote && info.rootRow)
+            else if (ui->view.lane == kLaneNote && info.rootRow && !drum)
                 look[row][col] = kLookRoot;
             else
                 look[row][col] = kLookOff;
@@ -185,18 +200,36 @@ void GridPanel::drawLayer(const DrawArgs& args, int layer)
         fillRect(vg, {{r.pos.x + r.size.x - 7, r.pos.y + 1}, {6, 6}}, kSelect, 1.f);
     }
 
-    // Row labels: note names in the NOTE lane, values elsewhere; markers for notes out of view.
+    // Row labels: note names in the NOTE lane (the roots bright: their pads alone are too close
+    // to the others), values elsewhere; markers for notes out of view.
     char buf[16];
     for (int row = 0; row < kGridRows; ++row) {
         const math::Rect r = padRect(0, row);
         std::string s;
-        if (ui->view.lane == kLaneNote)
-            s = noteName(trackKey(settings, t, ui->view.lowestDegree + kGridRows - 1 - row), buf, sizeof(buf));
-        else
-            s = rowLabel(ui->view, row, buf, sizeof(buf));
-        text(vg, kLabelX + 3, r.pos.y + kPadH / 2, s, kTextDim, 9.f);
+        bool root = false;
+        if (drum && ui->view.lane == kLaneNote) {
+            // Drum rows: the focused one in amber, a square to mute each (filled: muted).
+            const int dr = drumRowOf(row);
+            const bool muted = bank.tracks[t].rows[dr].mute;
+            text(vg, kLabelX + 3, r.pos.y + kPadH / 2, string::f("R%d", dr + 1),
+                 dr == ui->view.focusRow ? kBrand : muted ? kTextOff : kTextDim, 9.f);
+            const math::Rect box{{kW - 9, r.pos.y + kPadH / 2 - 4}, {8, 8}};
+            if (muted)
+                fillRect(vg, box, kText, 1.5f);
+            else
+                strokeRect(vg, box, kTextDim, 1.f, 1.5f);
+            continue;
+        }
+        if (ui->view.lane == kLaneNote) {
+            const int degree = ui->view.lowestDegree + kGridRows - 1 - row;
+            s = noteName(trackKey(settings, t, degree), buf, sizeof(buf));
+            root = ((degree % size) + size) % size == 0;
+        } else {
+            s = rowLabel(ui->view, trackMode, row, buf, sizeof(buf));
+        }
+        text(vg, kLabelX + 3, r.pos.y + kPadH / 2, s, root ? kInk : kTextDim, 9.f);
     }
-    if (ui->view.lane == kLaneNote) {
+    if (ui->view.lane == kLaneNote && !drum) {
         int above = 0, below = 0;
         for (int i = 0; i < len; ++i) {
             const Step& st = bank.tracks[t].steps[wrapStep(start + i)];
@@ -241,13 +274,25 @@ void GridPanel::paintCell(int col, int row, bool first)
     if (!module)
         return;
     const int stepIndex = stepForColumn(ui->view, col);
-    const bool isPoly = poly();
+    const int trackMode = this->trackMode();
+    const bool isPoly = trackMode == kModePoly;
     const GridView view = ui->view;
     const int degree = view.lowestDegree + kGridRows - 1 - row;
     module->editPatterns([&](PatternBank& b) {
         Step& s = b.tracks[view.track].steps[stepIndex];
         if (view.lane != kLaneNote)
-            return pressPad(b, view, isPoly, col, row);
+            return pressPad(b, view, trackMode, col, row);
+        if (trackMode == kModeDrum) {
+            // Paint: the first pad sets whether the drag adds or removes hits.
+            const uint8_t bit = uint8_t(1u << drumRowOf(row));
+            const bool lit = s.hits & bit;
+            if (first)
+                paintOn = !lit;
+            if (paintOn == lit)
+                return false;
+            s.hits = uint8_t(paintOn ? s.hits | bit : s.hits & ~bit);
+            return true;
+        }
         const int n = isPoly ? clamp(int(s.numNotes), 1, kMaxVoices) : 1;
         const bool lit = s.active && std::find(s.degree, s.degree + n, int8_t(degree)) != s.degree + n;
         if (first)
@@ -263,7 +308,7 @@ void GridPanel::paintCell(int col, int row, bool first)
             s.degree[0] = int8_t(degree);
             return true;
         }
-        return pressPad(b, view, true, col, row);
+        return pressPad(b, view, kModePoly, col, row);
     });
     lastCol = col;
     lastRow = row;
@@ -277,7 +322,8 @@ void GridPanel::selectTo(int col)
     ui->selection = rangeMask(ui->anchor, step);
 }
 
-void GridPanel::stepMenu(int col)
+// Drum: the clicked row in the Hits lane, the focused row in the value lanes.
+void GridPanel::stepMenu(int col, int row)
 {
     if (!module)
         return;
@@ -285,8 +331,10 @@ void GridPanel::stepMenu(int col)
     Tetrad* m = module;
     UiState* u = ui;
     const int t = u->view.track;
+    const int dr = trackMode() != kModeDrum ? -1 : u->view.lane == kLaneNote ? drumRowOf(row) : u->view.focusRow;
     ui::Menu* menu = createMenu();
-    menu->addChild(createMenuLabel(string::f("Track %d · step %d", t + 1, stepIndex + 1)));
+    menu->addChild(createMenuLabel(dr < 0 ? string::f("Track %d · step %d", t + 1, stepIndex + 1)
+                                          : string::f("Track %d · step %d · row %d", t + 1, stepIndex + 1, dr + 1)));
     menu->addChild(createMenuItem("Select this step", "", [=] {
         u->selection.reset();
         u->selection.set(size_t(stepIndex));
@@ -294,21 +342,25 @@ void GridPanel::stepMenu(int col)
     }));
     menu->addChild(createMenuItem("Toggle on/off", "", [=] {
         editWithUndo(m, "toggle step", [&](PatternBank& b) {
-            b.tracks[t].steps[stepIndex].active = !b.tracks[t].steps[stepIndex].active;
+            Step& s = b.tracks[t].steps[stepIndex];
+            if (dr >= 0)
+                s.hits ^= uint8_t(1u << dr);
+            else
+                s.active = !s.active;
             return true;
         });
     }));
     const Step& step = u->bank.tracks[t].steps[stepIndex];
-    menu->addChild(createSubmenuItem("Ratchet", string::f("x%d", step.ratchet), [=](ui::Menu* sub) {
+    menu->addChild(createSubmenuItem("Ratchet", string::f("x%d", stepField(step, kStepRatchet, dr)), [=](ui::Menu* sub) {
         for (int r = 1; r <= kMaxRatchet; ++r)
             sub->addChild(createMenuItem(string::f("x%d", r), "", [=] {
                 editWithUndo(m, "ratchet", [&](PatternBank& b) {
-                    b.tracks[t].steps[stepIndex].ratchet = uint8_t(r);
+                    setStepField(b.tracks[t].steps[stepIndex], kStepRatchet, r, dr);
                     return true;
                 });
             }));
     }));
-    menu->addChild(createSubmenuItem("Condition", conditionName(step.condition), [=](ui::Menu* sub) {
+    menu->addChild(createSubmenuItem("Condition", conditionName(stepField(step, kStepCondition, dr)), [=](ui::Menu* sub) {
         struct C {
             const char* name;
             uint8_t cond, a, b;
@@ -321,9 +373,9 @@ void GridPanel::stepMenu(int col)
             sub->addChild(createMenuItem(c.name, "", [=] {
                 editWithUndo(m, "condition", [&](PatternBank& b) {
                     Step& s = b.tracks[t].steps[stepIndex];
-                    s.condition = c.cond;
-                    s.condA = c.a;
-                    s.condB = c.b;
+                    setStepField(s, kStepCondition, c.cond, dr);
+                    setStepField(s, kStepCondB, c.b, dr);
+                    setStepField(s, kStepCondA, c.a, dr);
                     return true;
                 });
             }));
@@ -354,7 +406,7 @@ void GridPanel::onButton(const ButtonEvent& e)
 
     if (e.button == GLFW_MOUSE_BUTTON_RIGHT) {
         if (inGrid) {
-            stepMenu(col);
+            stepMenu(col, row);
             e.consume(this);
             return;
         }
@@ -404,6 +456,11 @@ void GridPanel::onButton(const ButtonEvent& e)
         return;
     }
     if (labelRect().contains(p)) {
+        if (trackMode() == kModeDrum) {
+            if (ui->view.lane == kLaneNote)
+                pressRowLabel(p, clamp(int((p.y - kGridY) / kRowH), 0, kGridRows - 1));
+            return;
+        }
         mode = Mode::Scroll;
         scrollAccum = 0.f;
         return;
@@ -508,6 +565,21 @@ void GridPanel::setLoop(int start, int length, const std::string& name)
     pushUndo(module, name, {{startId, oldStart}, {lengthId, oldLength}});
 }
 
+// Drum: the name picks the row the value lanes and the inspector edit; the square mutes it.
+void GridPanel::pressRowLabel(Vec p, int row)
+{
+    const int dr = drumRowOf(row);
+    if (p.x < kW - 12) {
+        ui->view.focusRow = dr;
+        return;
+    }
+    const int t = ui->view.track;
+    editWithUndo(module, "mute row", [&](PatternBank& b) {
+        b.tracks[t].rows[dr].mute = !b.tracks[t].rows[dr].mute;
+        return true;
+    });
+}
+
 void GridPanel::onDoubleClick(const DoubleClickEvent& e)
 {
     // Rack's double-click event has no position: the press position stands in.
@@ -531,7 +603,7 @@ void GridPanel::scroll(int delta)
 void GridPanel::onHoverScroll(const HoverScrollEvent& e)
 {
     // Only the row-label column scrolls notes: the rest of the module leaves the wheel to Rack.
-    if (labelRect().contains(e.pos) && ui->view.lane == kLaneNote && e.scrollDelta.y != 0) {
+    if (labelRect().contains(e.pos) && ui->view.lane == kLaneNote && e.scrollDelta.y != 0 && trackMode() != kModeDrum) {
         scroll(e.scrollDelta.y > 0 ? 1 : -1);
         e.consume(this);
         return;
@@ -550,7 +622,9 @@ void GridPanel::onHover(const HoverEvent& e)
     } else if (overviewRect().contains(e.pos)) {
         ui->hint = "Click: show page · Double-click: loop this page · Drag the bars: loop start / end · Drag inside: move the loop";
     } else if (labelRect().contains(e.pos)) {
-        ui->hint = "Drag or wheel: scroll notes (also with the arrow buttons of the keyboard)";
+        ui->hint = trackMode() == kModeDrum
+                       ? "Drum rows: click a name to edit that row (Up / Down) · click the square to mute it"
+                       : "Drag or wheel: scroll notes (also with the arrow buttons of the keyboard)";
     } else {
         for (int i = 0; i < kLaneCount; ++i)
             if (laneTab(i).contains(e.pos))

@@ -4,6 +4,18 @@
 
 namespace tetrad {
 
+void ClockFollower::setPpqn(int ppqn)
+{
+    ppqn = ppqn > 0 ? ppqn : 1;
+    if (ppqn == ppqn_)
+        return;
+    if (pulses_ > 0) {
+        baseBeat_ += double(pulses_) / ppqn_;
+        pulses_ = 0;
+    }
+    ppqn_ = ppqn;
+}
+
 TransportState ClockFollower::tick(bool pulse, bool run, double sampleRate)
 {
     samplesSincePulse_ += 1;
@@ -28,10 +40,10 @@ TransportState ClockFollower::tick(bool pulse, bool run, double sampleRate)
     tr.playing = run && pulses_ >= 0 && samplesSincePulse_ < timeout;
     if (periodSamples_ > 0) {
         tr.tempo = tempo_;
-        tr.beat = double(pulses_) / ppqn_ + std::min(samplesSincePulse_ * beatsPerSample_, hold_);
+        tr.beat = baseBeat_ + double(pulses_) / ppqn_ + std::min(samplesSincePulse_ * beatsPerSample_, hold_);
     } else {
         tr.tempo = 120.0;
-        tr.beat = double(std::max<int64_t>(pulses_, 0)) / ppqn_;
+        tr.beat = baseBeat_ + double(std::max<int64_t>(pulses_, 0)) / ppqn_;
     }
     return tr;
 }
@@ -43,9 +55,9 @@ void CvVoices::clear()
             v = Voice{};
     for (int& c : channels_)
         c = 1;
-    for (auto& track : lanes_)
+    for (auto& track : rows_)
         for (auto& l : track)
-            l = Lane{};
+            l = DrumRow{};
     for (int& t : trig_)
         t = 0;
     changed_ = false;
@@ -62,7 +74,7 @@ void CvVoices::beginSample()
     for (auto& track : voices_)
         for (auto& v : track)
             v.gateBefore = v.gate;
-    for (auto& track : lanes_)
+    for (auto& track : rows_)
         for (auto& l : track)
             l.gateBefore = l.gate;
 }
@@ -72,16 +84,17 @@ void CvVoices::emit(const NoteEvent& e)
     changed_ = true;
     frameDirty_ = true;
 
-    // Drum lane of the note (scale degree 0..7), same retrigger rule as the voices.
-    if (e.degree >= 0 && e.degree < kDrumLanes) {
-        Lane& l = lanes_[e.track][e.degree];
+    // Drum row of the note (scale degree 0..7, or the row of a Drum track), same retrigger rule as the voices.
+    if (e.degree >= 0 && e.degree < kDrumRows) {
+        DrumRow& l = rows_[e.track][e.degree];
         if (e.on) {
             if (l.gate || l.gateBefore)
                 l.retrig = retrigSamples_;
             l.gate = true;
             l.trig = retrigSamples_;
+            l.key = e.key;
             l.velocity = uint8_t(std::clamp(int(e.velocity * 127.f + 0.5f), 1, 127));
-        } else {
+        } else if (e.key == l.key) {
             l.gate = false;
         }
     }
@@ -89,7 +102,7 @@ void CvVoices::emit(const NoteEvent& e)
         trig_[e.track] = retrigSamples_;
 
     Voice* track = voices_[e.track];
-    const int count = poly_[e.track] ? kMaxVoices : 1;
+    const int count = drum_[e.track] ? kDrumRows : poly_[e.track] ? kMaxVoices : 1;
     if (!e.on) {
         for (int i = 0; i < count; ++i)
             if (track[i].gate && track[i].key == e.key) {
@@ -99,8 +112,9 @@ void CvVoices::emit(const NoteEvent& e)
         return;
     }
 
-    // A voice already on this key, else one that was silent, else any free one, else the oldest.
-    Voice* v = nullptr;
+    // Drum: the row's own channel. Otherwise a voice already on this key, else one that was
+    // silent, else any free one, else the oldest.
+    Voice* v = drum_[e.track] && e.degree >= 0 && e.degree < kDrumRows ? &track[e.degree] : nullptr;
     for (int i = 0; i < count && !v; ++i)
         if (track[i].gate && track[i].key == e.key)
             v = &track[i];
@@ -154,23 +168,23 @@ void CvVoices::output(CvFrame& f)
             counting = true;
         }
         uint8_t gates = 0, trigs = 0;
-        for (int l = 0; l < kDrumLanes; ++l) {
-            Lane& lane = lanes_[t][l];
-            if (lane.gate && lane.retrig == 0)
+        for (int l = 0; l < kDrumRows; ++l) {
+            DrumRow& row = rows_[t][l];
+            if (row.gate && row.retrig == 0)
                 gates |= uint8_t(1u << l);
-            if (lane.retrig > 0) {
-                --lane.retrig;
+            if (row.retrig > 0) {
+                --row.retrig;
                 counting = true;
             }
-            if (lane.trig > 0) {
+            if (row.trig > 0) {
                 trigs |= uint8_t(1u << l);
-                --lane.trig;
+                --row.trig;
                 counting = true;
             }
-            f.laneVelocity[t][l] = lane.velocity;
+            f.rowVelocity[t][l] = row.velocity;
         }
-        f.laneGate[t] = gates;
-        f.laneTrig[t] = trigs;
+        f.rowGate[t] = gates;
+        f.rowTrig[t] = trigs;
     }
     // One more pass after the last countdown ends, so the frame shows it finished.
     countdowns_ = counting;

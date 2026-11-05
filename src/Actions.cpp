@@ -34,13 +34,18 @@ void newSeed(Tetrad* m, int track)
     setParamWithUndo(m, trackParamIndex(track, kTrackSeed), float(rng() % 10000));
 }
 
-// On the bottom visible row of the NOTE lane.
+// On the bottom visible row of the NOTE lane; on a Drum track, as the focused row's hits.
 void euclidLoop(Tetrad* m, const UiState& u)
 {
     const int t = u.view.track, start = loopStart(m, t), len = loopLength(m, t);
     const int pulses = u.euclidPulses[t], rotation = u.euclidRotation[t], degree = u.view.lowestDegree;
+    const bool drum = trackValue(m, t, kTrackMode) == kModeDrum;
+    const int row = u.view.focusRow;
     editWithUndo(m, "euclid", [&](PatternBank& b) {
-        euclid(b, t, start, len, pulses, rotation, degree);
+        if (drum)
+            euclidRow(b, t, start, len, pulses, rotation, row);
+        else
+            euclid(b, t, start, len, pulses, rotation, degree);
         return true;
     });
 }

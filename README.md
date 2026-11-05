@@ -14,7 +14,8 @@ its routing expander.
 
 ## Features
 
-- Four tracks, Mono (one note per step) or Poly (up to 7 notes per step).
+- Four tracks, Mono (one note per step), Poly (up to 7 notes per step) or Drum (eight rows, one
+  fixed voice each, with their own hits).
 - 128 steps per track (8 pages of 16), with a loop window (start + length) that can wrap.
 - Steps hold scale degrees: changing the root or the scale re-harmonises the pattern.
   29 scales.
@@ -32,7 +33,11 @@ its routing expander.
 ![Tetrad panel](docs/vcv-panel.png)
 
 The left half is an **inspector**: transport, the selected track's settings, root and scale,
-the generator, and the fields of the selected steps. The right half holds the track and lane
+the generator, and the fields of the selected steps. It shows the main settings; **EXPERT**, at
+the left of the name band, shows every setting (direction, swing, start, transposition,
+generator voices, ratchets and conditions, the conditions of the selected steps...). A new
+Tetrad starts with empty tracks: the generator writes a track once its SEED, DENS or another
+of its settings moves (or NEW SEED, key `S`). The right half holds the track and lane
 tabs, an overview of the 128 steps with the loop handles, the 16x8 grid and the note names of
 the rows. A help line at the bottom of the inspector describes what is under the pointer, and
 the **HELP** button (in the name band, or key `H`) shows every gesture and shortcut. PLAY and RESET
@@ -115,12 +120,14 @@ In the step menu and the module menu, applied to the loop of the selected track:
 | RUN | high: play, low: pause; unpatched: follows PLAY |
 | TRANSP | 1 V/oct, rounded to semitones, added to the tracks with TRSP IN on |
 | T1 to T4 | track on / off |
-| V/OCT, GATE, VEL | per track: 0 V = C4; 10 V gates; velocity 0 to 10 V. Polyphonic in Poly mode (up to 7 channels) |
+| V/OCT, GATE, VEL | per track: 0 V = C4; 10 V gates; velocity 0 to 10 V. Polyphonic in Poly mode (up to 7 channels); 8 channels in Drum mode, channel n = row n (V/OCT: 0 V plus n - 1 semitones) |
 
 Most Rack clock modules send one pulse per quarter note on their main output, which is the
 default resolution. Click the PPQN field of the inspector to change it. Over an external
 clock, a step that falls on a pulse fires exactly with it, even when the clock slows down; the
-transport stops after four periods without a pulse.
+transport stops after four periods without a pulse. Steps between two pulses are placed from
+the last measured period: when the clock speeds up, a pulse that comes early skips the step
+that was still due before it. A clock of 4 PPQN or more puts every 1/16 step on a pulse.
 
 ## Tetrad Pipe
 
@@ -135,11 +142,30 @@ outputs is routed by right-click:
 | Track | 1 to 4 |
 | Row | 1 (bottom grid row) to 8 |
 
-A Poly track works as a drum track: each grid row (scale degrees 0 to 7 at the default scroll)
+Each grid row of a Drum track (and of a Poly track: scale degrees 0 to 7 at the default scroll)
 has its own gate, trigger and velocity. "Route a track as drums" in the module menu sends the
 velocities of rows 1-8 of a track to outputs 1-8 and their gates to outputs 9-16. The default
 routing is pitch, velocity and gate of the four tracks on outputs 1-12, triggers of tracks 1
 and 2, clock and reset. The Pipe adds one sample of latency (Rack expander messages).
+
+## Drum mode
+
+MODE set to Drum turns a track into eight drum rows, row 1 at the bottom of the grid. Each row
+is a fixed voice: no notes, no scale, no transposition.
+
+- The NOTE lane becomes **HITS**: click or paint a pad to place a hit on that row.
+- Each hit has its own velocity, gate, probability, ratchet and condition. The VEL, GATE, PROB,
+  RTCH and COND lanes show the values of one row, the **focused row**, named in the lane tab
+  (VEL R3). Click a row name at the right of the grid, or press Up / Down, to focus another.
+  The selection fields of the inspector and the step menu (right-click) also act on that row.
+- Per row: a **level** (velocity scale, up to 200 %), a **probability** scale (ROW, LVL and PROB
+  in the inspector, in place of the root and scale) and a **mute** (the square after the row
+  name).
+- The generator writes drum parts on a Drum track: kick on the beats, snare on the backbeat,
+  hats on the eighths and off-beats, sparse percussion on rows 5 to 8. Euclid (key E) fills the
+  focused row.
+- The outputs carry 8 channels, one per row; the Pipe's row outputs give each row on its own
+  jack.
 
 ## Building
 

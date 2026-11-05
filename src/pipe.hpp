@@ -10,13 +10,16 @@ struct PipeMessage {
     tetrad::CvFrame frame;
     bool clock;   // 1 ms trigger on every clock pulse received by Tetrad
     bool reset;   // 1 ms trigger on reset and when playback starts
+    // New on every message: a bypassed Tetrad stops sending, and the Pipe must not hold the
+    // last frame (its gates would hang).
+    uint32_t serial;
 };
 
 namespace pipe {
 
 constexpr int kOutputs = 16;
 constexpr int kTracks = tetrad::kNumTracks;
-constexpr int kRows = tetrad::kDrumLanes;   // grid rows = scale degrees 0..7 = drum lanes
+constexpr int kRows = tetrad::kDrumRows;   // grid rows = scale degrees 0..7 = drum rows
 
 // What an output carries. Values are saved in patches: append only.
 enum Signal {
@@ -25,7 +28,7 @@ enum Signal {
     kVelocity,      // 0-10 V, polyphonic
     kGate,          // polyphonic
     kTrigger,       // 1 ms at every note start of the track
-    kRowGate,       // one grid row (drum lane) of the track
+    kRowGate,       // one grid row (drum row) of the track
     kRowTrigger,
     kRowVelocity,
     kClock,

@@ -60,6 +60,7 @@ struct TetradPipe : Module {
     enum LightId { LINK_LIGHT, NUM_LIGHTS };
 
     PipeMessage messages[2] = {};
+    uint32_t lastSerial = 0;
     pipe::Route routes[pipe::kOutputs];
 
     TetradPipe()
@@ -94,9 +95,12 @@ struct TetradPipe : Module {
 
     void process(const ProcessArgs& args) override
     {
-        const bool linked = leftExpander.module && leftExpander.module->model == modelTetrad;
-        lights[LINK_LIGHT].setBrightness(linked ? 1.f : 0.f);
         const PipeMessage& m = *static_cast<const PipeMessage*>(leftExpander.consumerMessage);
+        // Linked: Tetrad on the left and sending (a bypassed Tetrad sends nothing new).
+        const bool fresh = m.serial != lastSerial;
+        lastSerial = m.serial;
+        const bool linked = fresh && leftExpander.module && leftExpander.module->model == modelTetrad;
+        lights[LINK_LIGHT].setBrightness(linked ? 1.f : 0.f);
         const tetrad::CvFrame& f = m.frame;
 
         for (int i = 0; i < pipe::kOutputs; ++i) {
@@ -130,9 +134,9 @@ struct TetradPipe : Module {
                 continue;
             }
             case pipe::kTrigger: out.setVoltage((f.trigMask >> t) & 1u ? 10.f : 0.f); break;
-            case pipe::kRowGate: out.setVoltage((f.laneGate[t] >> row) & 1u ? 10.f : 0.f); break;
-            case pipe::kRowTrigger: out.setVoltage((f.laneTrig[t] >> row) & 1u ? 10.f : 0.f); break;
-            case pipe::kRowVelocity: out.setVoltage(f.laneVelocity[t][row] * (10.f / 127.f)); break;
+            case pipe::kRowGate: out.setVoltage((f.rowGate[t] >> row) & 1u ? 10.f : 0.f); break;
+            case pipe::kRowTrigger: out.setVoltage((f.rowTrig[t] >> row) & 1u ? 10.f : 0.f); break;
+            case pipe::kRowVelocity: out.setVoltage(f.rowVelocity[t][row] * (10.f / 127.f)); break;
             case pipe::kClock: out.setVoltage(m.clock ? 10.f : 0.f); break;
             case pipe::kReset: out.setVoltage(m.reset ? 10.f : 0.f); break;
             default: out.setVoltage(0.f); break;
@@ -173,6 +177,38 @@ struct TetradPipe : Module {
 
 namespace {
 
+// Route edits from the menus, one undo entry each.
+struct RoutesChange : history::ModuleAction {
+    pipe::Route before[pipe::kOutputs], after[pipe::kOutputs];
+    void set(const pipe::Route* routes)
+    {
+        if (auto* m = dynamic_cast<TetradPipe*>(APP->engine->getModule(moduleId)))
+            std::copy(routes, routes + pipe::kOutputs, m->routes);
+    }
+    void undo() override { set(before); }
+    void redo() override { set(after); }
+};
+
+bool sameRoute(const pipe::Route& a, const pipe::Route& b)
+{
+    return a.signal == b.signal && a.track == b.track && a.row == b.row;
+}
+
+template <typename F>
+void editRoutes(TetradPipe* m, const std::string& name, F&& fn)
+{
+    auto* a = new RoutesChange;
+    a->moduleId = m->id;
+    a->name = name;
+    std::copy(m->routes, m->routes + pipe::kOutputs, a->before);
+    fn();
+    std::copy(m->routes, m->routes + pipe::kOutputs, a->after);
+    if (std::equal(a->before, a->before + pipe::kOutputs, a->after, sameRoute))
+        delete a;
+    else
+        APP->history->push(a);
+}
+
 const NVGcolor kNumber = nvgRGBA(23, 24, 28, 170);   // on the amber columns
 const NVGcolor kTagInk = nvgRGB(23, 24, 28);
 // Track colours, the same as Tetrad's track tabs (ui.hpp).
@@ -203,7 +239,7 @@ struct RoutedPort : PJ301MPort {
         menu->addChild(createSubmenuItem("Signal", pipe::kSignalNames[m->routes[i].signal], [=](Menu* sub) {
             for (int s = 0; s < pipe::kSignalCount; ++s)
                 sub->addChild(createCheckMenuItem(pipe::kSignalNames[s], "", [=] { return m->routes[i].signal == s; },
-                                                  [=] { m->routes[i].signal = s; }));
+                                                  [=] { editRoutes(m, "route output", [&] { m->routes[i].signal = s; }); }));
         }));
         menu->addChild(createSubmenuItem(
             "Track", string::f("%d", m->routes[i].track + 1),
@@ -211,7 +247,7 @@ struct RoutedPort : PJ301MPort {
                 for (int t = 0; t < pipe::kTracks; ++t)
                     sub->addChild(createCheckMenuItem(string::f("Track %d", t + 1), "",
                                                       [=] { return m->routes[i].track == t; },
-                                                      [=] { m->routes[i].track = t; }));
+                                                      [=] { editRoutes(m, "route output", [&] { m->routes[i].track = t; }); }));
             },
             !pipe::usesTrack(m->routes[i].signal)));
         menu->addChild(createSubmenuItem(
@@ -220,7 +256,7 @@ struct RoutedPort : PJ301MPort {
                 for (int r = pipe::kRows - 1; r >= 0; --r)   // top row first, like the grid
                     sub->addChild(createCheckMenuItem(string::f("Row %d%s", r + 1, r == 0 ? " (bottom)" : ""), "",
                                                       [=] { return m->routes[i].row == r; },
-                                                      [=] { m->routes[i].row = r; }));
+                                                      [=] { editRoutes(m, "route output", [&] { m->routes[i].row = r; }); }));
             },
             !pipe::usesRow(m->routes[i].signal)));
     }
@@ -329,11 +365,11 @@ struct TetradPipeWidget : ModuleWidget {
             return;
         menu->addChild(new MenuSeparator);
         menu->addChild(createMenuLabel("Right-click an output to route it"));
-        menu->addChild(createMenuItem("Default routing", "", [=] { m->defaultRouting(); }));
+        menu->addChild(createMenuItem("Default routing", "", [=] { editRoutes(m, "default routing", [&] { m->defaultRouting(); }); }));
         menu->addChild(createSubmenuItem("Route a track as drums (rows 1-8)", "", [=](Menu* sub) {
             for (int t = 0; t < pipe::kTracks; ++t)
                 sub->addChild(createMenuItem(string::f("Track %d", t + 1), "1-8 velocity, 9-16 gate",
-                                             [=] { m->drumRouting(t); }));
+                                             [=] { editRoutes(m, "drum routing", [&] { m->drumRouting(t); }); }));
         }));
     }
 };

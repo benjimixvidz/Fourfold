@@ -17,7 +17,7 @@ struct NoteEvent {
     uint8_t track;
     uint8_t key;      // 0..127
     float velocity;   // 0..1 (0 for note off)
-    int8_t degree;    // scale degree of the step note (drum lanes use 0..7)
+    int8_t degree;    // scale degree of the step note (drum rows use 0..7)
 };
 
 class NoteSink {
@@ -61,6 +61,10 @@ public:
     void setFastPath(bool enabled) { fastPath_ = enabled; }
     void allNotesOff(uint32_t frame, NoteSink& sink);
 
+    // RESET while playing: Drunk walks start again from the first step, trig conditions count
+    // loops from the next step on and pending ratchets are dropped. Sounding notes play on.
+    void rewind();
+
 private:
     struct ActiveNote {
         uint64_t due;   // absolute frame of the note off
@@ -73,8 +77,9 @@ private:
         int64_t step;
         double beat;
         bool ratchetHit;   // a repeat inside a ratcheted step, not a new step
+        int row;           // Drum: the row of a ratchet repeat (Mono, Poly: 0)
     };
-    // Remaining hits of a ratcheted step; they may spill into later blocks.
+    // Remaining hits of a ratcheted step (Drum: of a row's hit); they may spill into later blocks.
     struct Ratchet {
         int remaining = 0;
         int index = 0;
@@ -91,11 +96,17 @@ private:
                    int& numTriggers, int current, NoteSink& sink);
     void playNotes(int track, int index, double gateBeats, uint32_t localFrame, uint32_t firstFrame,
                    double beatsPerFrame, NoteSink& sink);
+    void playHit(int track, int index, int row, double gateBeats, uint32_t localFrame, uint32_t firstFrame,
+                 double beatsPerFrame, NoteSink& sink);
+    void startDrumStep(const Trigger& trig, int index, int64_t loop, double b0, double beatsPerFrame,
+                       uint32_t numFrames, uint32_t firstFrame, int& numTriggers, int current, NoteSink& sink);
+    void queueRepeats(int track, int row, int64_t step, double b0, double beatsPerFrame, uint32_t numFrames,
+                      int& numTriggers, int current);
     int nextIndex(int track, int64_t k, int length);
     double stepStart(const TrackSettings& ts, int64_t k) const;
     void releaseDue(uint64_t limit, bool inclusive, uint32_t firstFrame, NoteSink& sink);
     void releaseAt(int index, uint32_t frame, NoteSink& sink);
-    bool conditionPasses(int track, const Step& step, int64_t loop);
+    bool conditionPasses(int track, int row, uint8_t condition, uint8_t condA, uint8_t condB, int64_t loop);
     void stopPlayback();
     void updateNextEvent(double b1, double epsilon);
 
@@ -110,9 +121,10 @@ private:
     int64_t lastStep_[kNumTracks];
     int playhead_[kNumTracks];
     int drunkPos_[kNumTracks];
+    bool drunkRestart_[kNumTracks];   // the next Drunk step is the loop's first
     int64_t firstLoop_[kNumTracks];   // loop number of the first step since playback started
-    bool lastCondition_[kNumTracks];  // result of the latest non-PRE trig condition
-    Ratchet ratchet_[kNumTracks];
+    bool lastCondition_[kNumTracks][kDrumRows];   // latest non-PRE trig condition (Drum: per row)
+    Ratchet ratchet_[kNumTracks][kDrumRows];       // Mono, Poly: row 0
     int transpose_ = 0;
 
     // Fast path: valid while settings and transport continuity hold.

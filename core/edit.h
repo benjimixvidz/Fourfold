@@ -24,17 +24,19 @@ enum StepField {
 
 const char* conditionName(int condition);
 
-int stepField(const Step& s, int field);
+// `row` >= 0: the field of that drum row's hit (Drum mode) instead of the step's; kStepNotes has
+// no hit field (0, unchanged).
+int stepField(const Step& s, int field, int row = -1);
 // Clamped to the field's range. A gate above 100 is a tie; A:B conditions keep 1 <= A <= B and
 // start from 1:2.
-void setStepField(Step& s, int field, int value);
+void setStepField(Step& s, int field, int value, int row = -1);
 
 // Each function on selected steps returns true if a step changed.
-bool setSteps(PatternBank& bank, int track, const StepMask& sel, int field, int value);
+bool setSteps(PatternBank& bank, int track, const StepMask& sel, int field, int value, int row = -1);
 // Relative edit; the gate stops at 100 % before the tie and leaves the tie back to 100 %.
-bool adjustSteps(PatternBank& bank, int track, const StepMask& sel, int field, int delta);
+bool adjustSteps(PatternBank& bank, int track, const StepMask& sel, int field, int delta, int row = -1);
 // Back to the default value; the three condition fields reset together.
-bool resetSteps(PatternBank& bank, int track, const StepMask& sel, int field);
+bool resetSteps(PatternBank& bank, int track, const StepMask& sel, int field, int row = -1);
 // Moves every note by `degrees` scale degrees.
 bool transposeSteps(PatternBank& bank, int track, const StepMask& sel, int degrees);
 
@@ -61,6 +63,8 @@ void shiftSteps(PatternBank& bank, int track, const StepMask& sel, int amount);
 // Euclidean rhythm over the window: `pulses` hits spread over `length` steps, rotated.
 // Hits get `degree`; the other window steps are turned off.
 void euclid(PatternBank& bank, int track, int start, int length, int pulses, int rotation, int degree);
+// The same rhythm as the hits of one drum row (Drum mode); the other rows are kept.
+void euclidRow(PatternBank& bank, int track, int start, int length, int pulses, int rotation, int row);
 
 // Spreads the window's steps to every other step, so the caller can double the length and halve
 // the division without changing the music. Returns false when the doubled window would not fit.

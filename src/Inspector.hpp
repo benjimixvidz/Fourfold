@@ -28,6 +28,12 @@ struct Inspector : OpaqueWidget {
     Vec lastHover;
 
     Inspector();
+    bool expert() const;   // every setting shown (EXPERT on)
+    bool drum() const;     // the viewed track is in Drum mode
+    int hitRow() const;    // Drum: the focused row, whose hits the step fields edit; else -1
+    std::string rowText(int field) const;
+    void nudgeRow(int field, int delta);
+    void setRow(int field, int value);
     int paramId(int field) const;
     std::string stepText(int field) const;
     void nudgeField(int field, int delta);

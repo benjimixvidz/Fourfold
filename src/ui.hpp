@@ -34,7 +34,6 @@ const NVGcolor kTextDim = nvgRGB(140, 142, 152);
 const NVGcolor kTextOff = nvgRGB(70, 72, 82);
 const NVGcolor kInk = nvgRGB(240, 236, 228);
 const NVGcolor kSelect = nvgRGB(250, 250, 250);
-const NVGcolor kMuted = nvgRGB(240, 112, 112);
 const NVGcolor kPlayOn = kBrand;
 const NVGcolor kOverviewLines = nvgRGB(74, 76, 86);
 
@@ -216,6 +215,29 @@ inline void setParamWithUndo(Module* m, int id, float value)
     q->setValue(value);
     pushUndo(m, "change " + q->getLabel(), {{id, old}});
 }
+
+// A parameter slider for menus: the whole drag is one undo entry.
+struct ParamSlider : ui::Slider {
+    Module* module = nullptr;
+    int paramId = 0;
+    float old = 0.f;
+
+    ParamSlider(Module* m, int id, float width) : module(m), paramId(id)
+    {
+        quantity = m->getParamQuantity(id);
+        box.size.x = width;
+    }
+    void onDragStart(const DragStartEvent& e) override
+    {
+        old = module->params[paramId].getValue();
+        ui::Slider::onDragStart(e);
+    }
+    void onDragEnd(const DragEndEvent& e) override
+    {
+        ui::Slider::onDragEnd(e);
+        pushUndo(module, "change " + module->getParamQuantity(paramId)->getLabel(), {{paramId, old}});
+    }
+};
 
 // A pattern edit as one undo entry; returns true if it changed the patterns.
 template <typename F>

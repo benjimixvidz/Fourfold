@@ -10,6 +10,7 @@ constexpr int kMaxSteps = 128;   // 8 pages of 16
 constexpr int kMaxVoices = 7;    // notes per step in Poly mode
 constexpr int kMaxRatchet = 8;
 constexpr uint8_t kGateTie = 200;   // a step gate above 100 % ties into the next step
+constexpr int kDrumRows = 8;        // Drum mode: one fixed voice per grid row (row 1 at the bottom)
 
 // Trig conditions, evaluated each time the step comes up.
 enum Condition : uint8_t {
@@ -23,6 +24,17 @@ enum Condition : uint8_t {
     kCondCount
 };
 
+// One row's hit in a step of a Drum track: the same fields as a step.
+struct DrumHit {
+    uint8_t velocity = 100;
+    uint8_t gate = 100;          // 1..100 or kGateTie
+    uint8_t probability = 100;
+    uint8_t ratchet = 1;
+    uint8_t condition = kCondAlways;
+    uint8_t condA = 1;
+    uint8_t condB = 1;
+};
+
 struct Step {
     bool active = false;
     uint8_t numNotes = 1;            // 1..kMaxVoices (Poly mode plays all of them)
@@ -34,6 +46,16 @@ struct Step {
     uint8_t condition = kCondAlways;
     uint8_t condA = 1;               // A:B conditions, 1 <= A <= B <= 8
     uint8_t condB = 1;
+    // Drum mode (the fields above serve Mono and Poly): a bit per row with a hit, and the hits.
+    uint8_t hits = 0;
+    DrumHit drum[kDrumRows];
+};
+
+// Drum mode, per row of the track: scales applied to every hit of the row, and a mute.
+struct RowSettings {
+    uint8_t level = 100;         // % of the hits' velocity
+    uint8_t probability = 100;   // % of the hits' probability
+    bool mute = false;
 };
 
 // Generator settings a pattern was produced from. The sequencer regenerates a track only when
@@ -57,6 +79,7 @@ struct GenKey {
 
 struct TrackPattern {
     Step steps[kMaxSteps];
+    RowSettings rows[kDrumRows];
     GenKey key;
 };
 
@@ -64,7 +87,8 @@ struct PatternBank {
     TrackPattern tracks[kNumTracks];
 };
 
-// Deterministic: the same key always yields the same pattern.
+// Deterministic: the same key always yields the same pattern. It writes both the notes (Mono,
+// Poly) and the drum hits (Drum), from separate random streams; the row settings are kept.
 void generatePattern(const GenKey& key, TrackPattern& out);
 
 } // namespace tetrad

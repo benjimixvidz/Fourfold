@@ -11,7 +11,7 @@ namespace {
 
 const char* const kOffOn[] = {"Off", "On", nullptr};
 const char* const kKeys[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B", nullptr};
-const char* const kModes[] = {"Mono", "Poly", nullptr};
+const char* const kModes[] = {"Mono", "Poly", "Drum", nullptr};
 const char* const kDirections[] = {"Forward", "Backward", "Ping-pong", "Random", "Drunk", nullptr};
 // Indices are saved in patches: append only.
 const char* const kDivisions[] = {"1/1",  "1/2",  "1/4",   "1/8",   "1/16",  "1/32",

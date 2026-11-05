@@ -40,6 +40,10 @@ Tetrad::Tetrad()
     configParam(TEMPO_PARAM, 20.f, 300.f, 120.f, "Internal tempo", " BPM");
     configSwitch(PLAY_PARAM, 0.f, 1.f, 1.f, "Play", {"Stopped", "Playing"});
     configButton(RESET_PARAM, "Reset (back to step 1)");
+    ParamQuantity* expert =
+        configSwitch(EXPERT_PARAM, 0.f, 1.f, 0.f, "Expert view", {"Off: the main settings", "On: every setting"});
+    expert->randomizeEnabled = false;
+    expert->resetEnabled = false;
     configInput(CLOCK_INPUT, "Clock (unpatched: internal clock)");
     configInput(RESET_INPUT, "Reset");
     configInput(RUN_INPUT, "Run (high = play, unpatched = always)");
@@ -56,8 +60,32 @@ Tetrad::Tetrad()
     for (int i = 0; i < kNumParams; ++i)
         cachedValues[i] = params[i].getValue();
     applySettings();
+    // A new Tetrad starts empty: the generator only writes once one of its settings moves
+    // (SEED, NEW SEED, DENS...).
+    seq.setPatterns(emptyBank());
     sharedBank = seq.patterns();
     publishedVersion = seq.patternVersion();
+}
+
+PatternBank Tetrad::emptyBank()
+{
+    double values[kNumParams];
+    for (int i = 0; i < kNumParams; ++i)
+        values[i] = params[i].getValue();
+    const Settings s = settingsFromValues(values);
+    PatternBank bank;
+    for (int t = 0; t < kNumTracks; ++t)
+        bank.tracks[t].key = s.tracks[t].gen;
+    return bank;
+}
+
+// A patch (its module carries an "id") restores the view; a preset or a paste keeps it.
+void Tetrad::fromJson(json_t* root)
+{
+    const float expert = params[EXPERT_PARAM].getValue();
+    Module::fromJson(root);
+    if (!json_object_get(root, "id"))
+        params[EXPERT_PARAM].setValue(expert);
 }
 
 // Also called when the module is added to the engine.
@@ -72,9 +100,9 @@ void Tetrad::onReset(const ResetEvent& e)
 {
     Module::onReset(e);
     ppqnIndex = 0;
-    // Default generator keys make every track regenerate, hand edits included.
+    // Initialize empties every track, as a new module.
     std::lock_guard<std::mutex> lock(bankMutex);
-    sharedBank = PatternBank{};
+    sharedBank = emptyBank();
     publishEdit();
 }
 
@@ -101,7 +129,7 @@ void Tetrad::applySettings()
 {
     seq.setSettings(settingsFromValues(cachedValues));
     for (int t = 0; t < kNumTracks; ++t)
-        voices.setPoly(t, seq.settings().tracks[t].mode == kModePoly);
+        voices.setMode(t, seq.settings().tracks[t].mode);
 }
 
 // Every kControlRate samples: parameters, pattern exchange with the UI, lights.
@@ -157,6 +185,7 @@ void Tetrad::process(const ProcessArgs& args)
     if (resetEdge || resetPressed || (wasPlayOn && !playOn)) {
         clockHoldoff = 1e-3f;   // VCV: ignore CLOCK for 1 ms after RESET
         clock.reset();
+        seq.rewind();
         internalBeat = 0.0;
         internalTick = -1;
         if (resetEdge || resetPressed)
@@ -227,6 +256,7 @@ void Tetrad::process(const ProcessArgs& args)
     if (right && right->model == modelTetradPipe) {
         auto* msg = static_cast<PipeMessage*>(right->leftExpander.producerMessage);
         msg->frame = frame;
+        msg->serial = ++pipeSerial;
         msg->clock = clockHigh;
         msg->reset = resetHigh;
         right->leftExpander.messageFlipRequested = true;

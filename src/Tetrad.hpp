@@ -24,7 +24,9 @@ struct Tetrad : Module {
     enum OutputId { ENUMS(VOCT_OUTPUT, kNumTracks), ENUMS(GATE_OUTPUT, kNumTracks), ENUMS(VEL_OUTPUT, kNumTracks), NUM_OUTPUTS };
     enum LightId { ENUMS(ON_LIGHT, kNumTracks), CLOCK_LIGHT, NUM_LIGHTS };
     // Parameter ids 0..kNumParams-1 are the core table; these come after it.
-    enum ExtraParam { TEMPO_PARAM = kNumParams, PLAY_PARAM, RESET_PARAM, NUM_PARAMS };
+    // EXPERT is the panel's view (the inspector's main settings or every setting), not a setting
+    // of the sequence: presets and Initialize leave it as it is.
+    enum ExtraParam { TEMPO_PARAM = kNumParams, PLAY_PARAM, RESET_PARAM, EXPERT_PARAM, NUM_PARAMS };
 
     // UI-visible state.
     std::atomic<int> ppqnIndex{0};   // 1 PPQN: one pulse per quarter note, like most clock modules
@@ -40,6 +42,7 @@ struct Tetrad : Module {
     void process(const ProcessArgs& args) override;
     json_t* dataToJson() override;
     void dataFromJson(json_t* root) override;
+    void fromJson(json_t* root) override;
 
     // UI thread: applies `fn` to the shared patterns; returns true if it changed them.
     template <typename F>
@@ -71,6 +74,7 @@ private:
     int64_t internalTick = -1;   // last internal clock tick sent to the clock output
     int transposeSemis = 0;
     int controlCounter = 0;
+    uint32_t pipeSerial = 0;     // stamps each message to the Pipe
 
     std::mutex bankMutex;
     PatternBank sharedBank;      // guarded by bankMutex
@@ -78,6 +82,7 @@ private:
     uint64_t publishedVersion = 0;
 
     void publishEdit();          // with bankMutex held
+    PatternBank emptyBank();     // no step on, keyed to the generator settings: nothing regenerates
     void control(float sampleTime);
     void applySettings();
 };
