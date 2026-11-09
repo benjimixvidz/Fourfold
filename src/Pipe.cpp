@@ -10,7 +10,7 @@
 
 using namespace rack;
 
-namespace pipe {
+namespace tetrad::pipe {
 
 const char* const kSignalNames[kSignalCount] = {
     "None",      "Pitch (V/oct, poly)", "Velocity (poly)", "Gate (poly)", "Trigger",
@@ -53,20 +53,20 @@ Route defaultRoute(int i)
     return r;
 }
 
-} // namespace pipe
+} // namespace tetrad::pipe
 
 struct TetradPipe : Module {
-    enum OutputId { ENUMS(ROUTED_OUTPUT, pipe::kOutputs), NUM_OUTPUTS };
+    enum OutputId { ENUMS(ROUTED_OUTPUT, tetrad::pipe::kOutputs), NUM_OUTPUTS };
     enum LightId { LINK_LIGHT, NUM_LIGHTS };
 
     PipeMessage messages[2] = {};
     uint32_t lastSerial = 0;
-    pipe::Route routes[pipe::kOutputs];
+    tetrad::pipe::Route routes[tetrad::pipe::kOutputs];
 
     TetradPipe()
     {
         config(0, 0, NUM_OUTPUTS, NUM_LIGHTS);
-        for (int i = 0; i < pipe::kOutputs; ++i)
+        for (int i = 0; i < tetrad::pipe::kOutputs; ++i)
             configOutput(ROUTED_OUTPUT + i, string::f("Routed %d", i + 1))->description = "Right-click to choose its signal, track and row";
         configLight(LINK_LIGHT, "Linked to Tetrad (place Pipe directly on its right)");
         leftExpander.producerMessage = &messages[0];
@@ -76,15 +76,15 @@ struct TetradPipe : Module {
 
     void defaultRouting()
     {
-        for (int i = 0; i < pipe::kOutputs; ++i)
-            routes[i] = pipe::defaultRoute(i);
+        for (int i = 0; i < tetrad::pipe::kOutputs; ++i)
+            routes[i] = tetrad::pipe::defaultRoute(i);
     }
 
     // A whole track as drums: outputs 1-8 = velocity of rows 1-8, 9-16 = gate of rows 1-8.
     void drumRouting(int track)
     {
-        for (int i = 0; i < pipe::kOutputs; ++i)
-            routes[i] = {i < 8 ? pipe::kRowVelocity : pipe::kRowGate, track, i % 8};
+        for (int i = 0; i < tetrad::pipe::kOutputs; ++i)
+            routes[i] = {i < 8 ? tetrad::pipe::kRowVelocity : tetrad::pipe::kRowGate, track, i % 8};
     }
 
     void onReset(const ResetEvent& e) override
@@ -103,28 +103,28 @@ struct TetradPipe : Module {
         lights[LINK_LIGHT].setBrightness(linked ? 1.f : 0.f);
         const tetrad::CvFrame& f = m.frame;
 
-        for (int i = 0; i < pipe::kOutputs; ++i) {
+        for (int i = 0; i < tetrad::pipe::kOutputs; ++i) {
             Output& out = outputs[ROUTED_OUTPUT + i];
             if (!out.isConnected())
                 continue;
-            const pipe::Route r = routes[i];
-            const int t = clamp(r.track, 0, pipe::kTracks - 1);
-            const int row = clamp(r.row, 0, pipe::kRows - 1);
+            const tetrad::pipe::Route r = routes[i];
+            const int t = clamp(r.track, 0, tetrad::pipe::kTracks - 1);
+            const int row = clamp(r.row, 0, tetrad::pipe::kRows - 1);
             if (!linked) {
                 out.setVoltage(0.f);
                 out.setChannels(1);
                 continue;
             }
             switch (r.signal) {
-            case pipe::kPitch:
-            case pipe::kVelocity:
-            case pipe::kGate: {
+            case tetrad::pipe::kPitch:
+            case tetrad::pipe::kVelocity:
+            case tetrad::pipe::kGate: {
                 const int n = f.channels[t];
                 for (int c = 0; c < n; ++c) {
                     float v;
-                    if (r.signal == pipe::kPitch)
+                    if (r.signal == tetrad::pipe::kPitch)
                         v = (f.key[t][c] - 60) / 12.f;
-                    else if (r.signal == pipe::kVelocity)
+                    else if (r.signal == tetrad::pipe::kVelocity)
                         v = f.velocity[t][c] * (10.f / 127.f);
                     else
                         v = (f.gateMask[t] >> c) & 1u ? 10.f : 0.f;
@@ -133,12 +133,12 @@ struct TetradPipe : Module {
                 out.setChannels(n);
                 continue;
             }
-            case pipe::kTrigger: out.setVoltage((f.trigMask >> t) & 1u ? 10.f : 0.f); break;
-            case pipe::kRowGate: out.setVoltage((f.rowGate[t] >> row) & 1u ? 10.f : 0.f); break;
-            case pipe::kRowTrigger: out.setVoltage((f.rowTrig[t] >> row) & 1u ? 10.f : 0.f); break;
-            case pipe::kRowVelocity: out.setVoltage(f.rowVelocity[t][row] * (10.f / 127.f)); break;
-            case pipe::kClock: out.setVoltage(m.clock ? 10.f : 0.f); break;
-            case pipe::kReset: out.setVoltage(m.reset ? 10.f : 0.f); break;
+            case tetrad::pipe::kTrigger: out.setVoltage((f.trigMask >> t) & 1u ? 10.f : 0.f); break;
+            case tetrad::pipe::kRowGate: out.setVoltage((f.rowGate[t] >> row) & 1u ? 10.f : 0.f); break;
+            case tetrad::pipe::kRowTrigger: out.setVoltage((f.rowTrig[t] >> row) & 1u ? 10.f : 0.f); break;
+            case tetrad::pipe::kRowVelocity: out.setVoltage(f.rowVelocity[t][row] * (10.f / 127.f)); break;
+            case tetrad::pipe::kClock: out.setVoltage(m.clock ? 10.f : 0.f); break;
+            case tetrad::pipe::kReset: out.setVoltage(m.reset ? 10.f : 0.f); break;
             default: out.setVoltage(0.f); break;
             }
             out.setChannels(1);
@@ -149,7 +149,7 @@ struct TetradPipe : Module {
     {
         json_t* root = json_object();
         json_t* list = json_array();
-        for (const pipe::Route& r : routes) {
+        for (const tetrad::pipe::Route& r : routes) {
             json_t* o = json_object();
             json_object_set_new(o, "signal", json_integer(r.signal));
             json_object_set_new(o, "track", json_integer(r.track));
@@ -163,14 +163,14 @@ struct TetradPipe : Module {
     void dataFromJson(json_t* root) override
     {
         json_t* list = json_object_get(root, "routes");
-        for (int i = 0; i < pipe::kOutputs; ++i) {
+        for (int i = 0; i < tetrad::pipe::kOutputs; ++i) {
             json_t* o = json_array_get(list, i);
             if (!o)
                 continue;
-            pipe::Route& r = routes[i];
-            r.signal = clamp(int(json_integer_value(json_object_get(o, "signal"))), 0, pipe::kSignalCount - 1);
-            r.track = clamp(int(json_integer_value(json_object_get(o, "track"))), 0, pipe::kTracks - 1);
-            r.row = clamp(int(json_integer_value(json_object_get(o, "row"))), 0, pipe::kRows - 1);
+            tetrad::pipe::Route& r = routes[i];
+            r.signal = clamp(int(json_integer_value(json_object_get(o, "signal"))), 0, tetrad::pipe::kSignalCount - 1);
+            r.track = clamp(int(json_integer_value(json_object_get(o, "track"))), 0, tetrad::pipe::kTracks - 1);
+            r.row = clamp(int(json_integer_value(json_object_get(o, "row"))), 0, tetrad::pipe::kRows - 1);
         }
     }
 };
@@ -179,17 +179,17 @@ namespace {
 
 // Route edits from the menus, one undo entry each.
 struct RoutesChange : history::ModuleAction {
-    pipe::Route before[pipe::kOutputs], after[pipe::kOutputs];
-    void set(const pipe::Route* routes)
+    tetrad::pipe::Route before[tetrad::pipe::kOutputs], after[tetrad::pipe::kOutputs];
+    void set(const tetrad::pipe::Route* routes)
     {
         if (auto* m = dynamic_cast<TetradPipe*>(APP->engine->getModule(moduleId)))
-            std::copy(routes, routes + pipe::kOutputs, m->routes);
+            std::copy(routes, routes + tetrad::pipe::kOutputs, m->routes);
     }
     void undo() override { set(before); }
     void redo() override { set(after); }
 };
 
-bool sameRoute(const pipe::Route& a, const pipe::Route& b)
+bool sameRoute(const tetrad::pipe::Route& a, const tetrad::pipe::Route& b)
 {
     return a.signal == b.signal && a.track == b.track && a.row == b.row;
 }
@@ -200,10 +200,10 @@ void editRoutes(TetradPipe* m, const std::string& name, F&& fn)
     auto* a = new RoutesChange;
     a->moduleId = m->id;
     a->name = name;
-    std::copy(m->routes, m->routes + pipe::kOutputs, a->before);
+    std::copy(m->routes, m->routes + tetrad::pipe::kOutputs, a->before);
     fn();
-    std::copy(m->routes, m->routes + pipe::kOutputs, a->after);
-    if (std::equal(a->before, a->before + pipe::kOutputs, a->after, sameRoute))
+    std::copy(m->routes, m->routes + tetrad::pipe::kOutputs, a->after);
+    if (std::equal(a->before, a->before + tetrad::pipe::kOutputs, a->after, sameRoute))
         delete a;
     else
         APP->history->push(a);
@@ -212,7 +212,7 @@ void editRoutes(TetradPipe* m, const std::string& name, F&& fn)
 const NVGcolor kNumber = nvgRGBA(23, 24, 28, 170);   // on the amber columns
 const NVGcolor kTagInk = nvgRGB(23, 24, 28);
 // Track colours, the same as Tetrad's track tabs (ui.hpp).
-const NVGcolor kTrack[pipe::kTracks] = {nvgRGB(255, 176, 59), nvgRGB(46, 196, 182), nvgRGB(170, 120, 240),
+const NVGcolor kTrack[tetrad::pipe::kTracks] = {nvgRGB(255, 176, 59), nvgRGB(46, 196, 182), nvgRGB(170, 120, 240),
                                        nvgRGB(241, 91, 181)};
 
 // Panel layout (Rack pixels, 10 HP = 150 px wide): two amber columns of 70 px under the name
@@ -235,30 +235,30 @@ struct RoutedPort : PJ301MPort {
             return;
         const int i = index;
         menu->addChild(new MenuSeparator);
-        menu->addChild(createMenuLabel(string::f("Output %d: %s", i + 1, pipe::routeName(m->routes[i], false).c_str())));
-        menu->addChild(createSubmenuItem("Signal", pipe::kSignalNames[m->routes[i].signal], [=](Menu* sub) {
-            for (int s = 0; s < pipe::kSignalCount; ++s)
-                sub->addChild(createCheckMenuItem(pipe::kSignalNames[s], "", [=] { return m->routes[i].signal == s; },
+        menu->addChild(createMenuLabel(string::f("Output %d: %s", i + 1, tetrad::pipe::routeName(m->routes[i], false).c_str())));
+        menu->addChild(createSubmenuItem("Signal", tetrad::pipe::kSignalNames[m->routes[i].signal], [=](Menu* sub) {
+            for (int s = 0; s < tetrad::pipe::kSignalCount; ++s)
+                sub->addChild(createCheckMenuItem(tetrad::pipe::kSignalNames[s], "", [=] { return m->routes[i].signal == s; },
                                                   [=] { editRoutes(m, "route output", [&] { m->routes[i].signal = s; }); }));
         }));
         menu->addChild(createSubmenuItem(
             "Track", string::f("%d", m->routes[i].track + 1),
             [=](Menu* sub) {
-                for (int t = 0; t < pipe::kTracks; ++t)
+                for (int t = 0; t < tetrad::pipe::kTracks; ++t)
                     sub->addChild(createCheckMenuItem(string::f("Track %d", t + 1), "",
                                                       [=] { return m->routes[i].track == t; },
                                                       [=] { editRoutes(m, "route output", [&] { m->routes[i].track = t; }); }));
             },
-            !pipe::usesTrack(m->routes[i].signal)));
+            !tetrad::pipe::usesTrack(m->routes[i].signal)));
         menu->addChild(createSubmenuItem(
             "Row", string::f("%d", m->routes[i].row + 1),
             [=](Menu* sub) {
-                for (int r = pipe::kRows - 1; r >= 0; --r)   // top row first, like the grid
+                for (int r = tetrad::pipe::kRows - 1; r >= 0; --r)   // top row first, like the grid
                     sub->addChild(createCheckMenuItem(string::f("Row %d%s", r + 1, r == 0 ? " (bottom)" : ""), "",
                                                       [=] { return m->routes[i].row == r; },
                                                       [=] { editRoutes(m, "route output", [&] { m->routes[i].row = r; }); }));
             },
-            !pipe::usesRow(m->routes[i].signal)));
+            !tetrad::pipe::usesRow(m->routes[i].signal)));
     }
 };
 
@@ -277,12 +277,12 @@ struct RoutingLabels : TransparentWidget {
         NVGcontext* vg = args.vg;
         nvgFontFaceId(vg, font->handle);
         constexpr float kTagW = 13.f, kTagH = 11.f, kGap = 3.f, kSize = 9.5f;
-        for (int i = 0; i < pipe::kOutputs; ++i) {
-            const pipe::Route r = module ? module->routes[i] : pipe::defaultRoute(i);
+        for (int i = 0; i < tetrad::pipe::kOutputs; ++i) {
+            const tetrad::pipe::Route r = module ? module->routes[i] : tetrad::pipe::defaultRoute(i);
             const Vec p = jackPos(i);
             const float y = p.y + 20.f;
-            const std::string name = pipe::routeName(r, true);
-            const bool tagged = pipe::usesTrack(r.signal);
+            const std::string name = tetrad::pipe::routeName(r, true);
+            const bool tagged = tetrad::pipe::usesTrack(r.signal);
             nvgFontSize(vg, kSize);
             nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
             float bounds[4];
@@ -319,7 +319,7 @@ struct StaticLabels : TransparentWidget {
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
         nvgFillColor(vg, kNumber);
         nvgFontSize(vg, 8.f);
-        for (int i = 0; i < pipe::kOutputs; ++i) {
+        for (int i = 0; i < tetrad::pipe::kOutputs; ++i) {
             const Vec p = jackPos(i);
             nvgText(vg, p.x - 15, p.y - 9, string::f("%d", i + 1).c_str(), nullptr);
         }
@@ -341,7 +341,7 @@ struct TetradPipeWidget : ModuleWidget {
         auto* labels = new StaticLabels;
         labels->box.size = box.size;
         addChild(labels);
-        for (int i = 0; i < pipe::kOutputs; ++i) {
+        for (int i = 0; i < tetrad::pipe::kOutputs; ++i) {
             auto* port = createOutputCentered<RoutedPort>(jackPos(i), module, TetradPipe::ROUTED_OUTPUT + i);
             port->pipeModule = module;
             port->index = i;
@@ -367,7 +367,7 @@ struct TetradPipeWidget : ModuleWidget {
         menu->addChild(createMenuLabel("Right-click an output to route it"));
         menu->addChild(createMenuItem("Default routing", "", [=] { editRoutes(m, "default routing", [&] { m->defaultRouting(); }); }));
         menu->addChild(createSubmenuItem("Route a track as drums (rows 1-8)", "", [=](Menu* sub) {
-            for (int t = 0; t < pipe::kTracks; ++t)
+            for (int t = 0; t < tetrad::pipe::kTracks; ++t)
                 sub->addChild(createMenuItem(string::f("Track %d", t + 1), "1-8 velocity, 9-16 gate",
                                              [=] { editRoutes(m, "drum routing", [&] { m->drumRouting(t); }); }));
         }));

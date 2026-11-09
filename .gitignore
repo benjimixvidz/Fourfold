@@ -3,3 +3,4 @@ dist/
 plugin.so
 plugin.dylib
 plugin.dll
+local.mk

@@ -30,6 +30,9 @@ public:
     // Call once per sample, `pulse` being true on the sample of a rising clock edge.
     // `run` false stops playback (notes off) without losing the position.
     TransportState tick(bool pulse, bool run, double sampleRate);
+    // The next gap is not a period: the transport was started (a RUN trigger) and the gap that
+    // ends at the next pulse holds the pause. The pulse counts, without measuring.
+    void skipNextGap() { skipGap_ = true; }
 
 private:
     int ppqn_ = 4;
@@ -37,6 +40,12 @@ private:
     double baseBeat_ = 0.0;          // beat of pulse 0 of the count (a PPQN change moves it)
     double samplesSincePulse_ = 0;
     double periodSamples_ = 0;       // 0 until two pulses have been seen
+    bool trustNextGap_ = false;      // the last gap was a restart: a like one measures again
+    double lastLongGap_ = 0;         // the gap of that restart
+    bool skipGap_ = false;           // skipNextGap(): the next pulse does not measure
+    bool earlyEdge_ = false;         // the first pulse came on the very first samples
+    int age_ = 0;                    // samples ticked so far, up to 8
+    double rate_ = 0;                // the sample rate of the last tick
     // Derived from the period and ppqn, recomputed on each pulse instead of each sample.
     int derivedPpqn_ = 0;
     double beatsPerSample_ = 0;

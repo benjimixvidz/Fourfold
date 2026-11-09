@@ -84,6 +84,7 @@ struct HelpOverlay : OpaqueWidget {
             "Ctrl+D           duplicate the loop (length x2)",
             "Delete           clear the selection",
             "Ctrl+Z           undo (Rack history) · Ctrl+Shift+Z redo",
+            "Module menu      RUN input: trigger (default) or gate · Clock PPQN",
         };
         auto column = [&](float x, const char* const* lines, size_t count) {
             for (size_t i = 0; i < count; ++i) {
@@ -573,7 +574,7 @@ struct TetradWidget : ModuleWidget {
         if (!m)
             return;
         menu->addChild(new MenuSeparator);
-        menu->addChild(createMenuItem("Gestures and shortcuts", "H", [=] { ui.help = true; }));
+        menu->addChild(createMenuItem("Gestures and shortcuts", "H", [=, this] { ui.help = true; }));
         appendLoopTools(menu, m, &ui);
         std::vector<std::string> ppqnLabels;
         for (int p : kPpqnChoices)
@@ -581,6 +582,12 @@ struct TetradWidget : ModuleWidget {
         menu->addChild(createIndexSubmenuItem("Clock PPQN (input, or Pipe clock output)", ppqnLabels,
                                                 [=] { return size_t(m->ppqnIndex.load()); },
                                                 [=](size_t i) { m->ppqnIndex.store(int(i)); }));
+        // Same order as Tetrad::RunMode. A new mode is one undo entry.
+        menu->addChild(createIndexSubmenuItem("RUN input",
+                                                {"Gate: high plays, low pauses",
+                                                 "Trigger (default): each trigger plays / pauses"},
+                                                [=] { return size_t(m->runMode.load()); },
+                                                [=](size_t i) { m->changeRunMode(int(i)); }));
         menu->addChild(new ParamSlider(m, Tetrad::TEMPO_PARAM, 220.f));
     }
 };

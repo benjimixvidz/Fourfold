@@ -1,5 +1,40 @@
 # Changelog
 
+## 2.7.1
+
+New:
+- RUN input in trigger mode, the default for a new Tetrad: each trigger toggles play and pause,
+  as clock modules such as Impromptu Clocked send on start and on stop. The play / pause state
+  is saved with the patch. Gate (high plays, low pauses) stays in the right-click menu (RUN
+  input), and patches from 2.7.0 and earlier load in Gate: they play as before. Presets from
+  2.7.0 (no RUN setting) leave the module's mode as it is. Initialize puts RUN back in trigger
+  mode, as on a new Tetrad. Over an external clock, a start plays from the clock's next pulse. A
+  new RUN mode is one undo step (Ctrl+Z brings back the mode and play / pause), and the help (H)
+  lists the module menu.
+
+Fixes:
+- When an external clock stops (no pulse for more than four periods: the transport stops) and
+  starts again, the steps after the start keep the last tempo, after two stops in a row too,
+  unless the second lasts about as long as the first: that reads as a clock slowed down more
+  than four times. Before, the stop was taken as one clock period: the first step after the
+  start held its gate for as long as the stop, and the next note came without a new attack. The
+  same holds when a patch opens over a clock held high (Impromptu Clocked, stopped) for more
+  than two seconds, and at any length when a RUN trigger starts it, even a trigger arriving a
+  sample after the clock's pulse. A clock that swings, misses a pulse, pauses briefly, slows
+  down up to four times or runs slower than one pulse every two seconds (started after the patch
+  opened) plays exactly as in 2.7.0; one that slows down more is followed from its second long
+  gap. A change of sample rate while an external clock runs keeps its tempo.
+- A patch that opens while its clock strikes on the very first samples plays step 1 on that
+  beat. Before, its patterns were loaded 32 samples later and the first beat was silent.
+- The engine thread no longer references a std::mutex: the pattern exchange with the panel uses
+  a spinlock that the engine only tries, never waits for.
+
+Tests (see README, Tests):
+- Module tests of the RUN input against the Rack SDK; a sound comparison with 2.7.0, sample by
+  sample, Tetrad Pipe included; patches saved by 2.6.2, 2.6.7 and 2.7.0 opened and played; a GUI
+  test of the RUN menu; fuzz tests of the clock input and of patterns; a soak of one hour of
+  audio; a bench; coverage of the changed lines.
+
 ## 2.7.0
 
 New:

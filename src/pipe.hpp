@@ -15,7 +15,7 @@ struct PipeMessage {
     uint32_t serial;
 };
 
-namespace pipe {
+namespace tetrad::pipe {
 
 constexpr int kOutputs = 16;
 constexpr int kTracks = tetrad::kNumTracks;
@@ -49,4 +49,4 @@ inline bool usesRow(int s) { return s == kRowGate || s == kRowTrigger || s == kR
 std::string routeName(const Route& r, bool shortName);
 Route defaultRoute(int output);
 
-} // namespace pipe
+} // namespace tetrad::pipe

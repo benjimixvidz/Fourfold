@@ -9,6 +9,7 @@
 #include "sequencer.h"
 #include "state.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -557,6 +558,97 @@ ClockRun runClock(Sequencer& seq, const std::vector<uint64_t>& pulses, uint64_t 
         before = high;
     }
     return r;
+}
+
+// The clock stops then starts again: the gap of the stop is not a period, so the steps after the
+// start keep the last tempo and each gets its own attack (a tempo taken from the stop would hold
+// the first gate for as long as the stop, and the next note, on another key, would come legato).
+void testClockRestart()
+{
+    std::printf("clock input: after a stop, the restart keeps the last tempo (every step gets its attack)\n");
+    std::vector<uint64_t> pulses;
+    for (uint64_t p = 0; p <= 42000; p += 6000)   // sixteenths at 120 BPM
+        pulses.push_back(p);
+    for (uint64_t p = 120000; p <= 162000; p += 6000)   // after a stop of 1.6 s
+        pulses.push_back(p);
+    Sequencer seq;
+    seq.reset(kRate);
+    seq.setSettings(baseSettings());
+    fillTrack(seq, 0, 1, true);   // a different key on each step
+    const ClockRun r = runClock(seq, pulses, 170000, 4);
+    CHECK(r.gateRises.size() == pulses.size());
+    for (size_t i = 0; i < std::min(r.gateRises.size(), pulses.size()); ++i)
+        CHECK(r.gateRises[i] == pulses[i]);
+    // A clock that slows down (three times longer) is measured at once, as in 2.7.0: only a gap
+    // long enough to stop the transport is a restart.
+    Sequencer slow;
+    slow.reset(kRate);
+    slow.setSettings(baseSettings());
+    fillTrack(slow, 0, 1, true);
+    const ClockRun s = runClock(slow, {0, 6000, 12000, 30000, 48000, 66000, 84000}, 90000, 4);
+    CHECK((s.gateRises == std::vector<uint64_t>{0, 6000, 12000, 30000, 48000, 66000, 84000}));
+}
+
+// The tempo a clock follower reads, ticking pulses at the given samples up to sample `end`.
+double followerTempo(ClockFollower& c, const std::vector<uint64_t>& pulses, uint64_t end, double rate)
+{
+    TransportState tr;
+    size_t k = 0;
+    for (uint64_t i = 0; i < end; ++i) {
+        const bool pulse = k < pulses.size() && pulses[k] == i;
+        k += pulse;
+        tr = c.tick(pulse, true, rate);
+    }
+    return tr.tempo;
+}
+
+void testClockRestartCases()
+{
+    std::printf("clock input: two stops in a row, a clock slowing by six, a slow clock, a new sample rate\n");
+    // Two stops with one pulse between them: the second stop is not a period either.
+    std::vector<uint64_t> pulses;
+    for (uint64_t p = 0; p <= 42000; p += 6000)
+        pulses.push_back(p);
+    pulses.push_back(120000);                            // after a stop of 1.6 s
+    for (uint64_t p = 420000; p <= 462000; p += 6000)   // after a second stop of 6 s
+        pulses.push_back(p);
+    Sequencer seq;
+    seq.reset(kRate);
+    seq.setSettings(baseSettings());
+    fillTrack(seq, 0, 1, true);
+    const ClockRun r = runClock(seq, pulses, 470000, 4);
+    CHECK(r.gateRises == pulses);
+    // A clock that slows down six times: the first long gap is a restart, the second, like it, is
+    // measured; every step keeps its attack.
+    std::vector<uint64_t> slow;
+    for (uint64_t p = 0; p <= 42000; p += 6000)
+        slow.push_back(p);
+    for (uint64_t p = 78000; p <= 258000; p += 36000)
+        slow.push_back(p);
+    Sequencer s6;
+    s6.reset(kRate);
+    s6.setSettings(baseSettings());
+    fillTrack(s6, 0, 1, true);
+    CHECK(runClock(s6, slow, 260000, 4).gateRises == slow);
+    ClockFollower c6;
+    c6.setPpqn(4);
+    CHECK(std::fabs(followerTempo(c6, slow, 259000, kRate) - 20.0) < 0.01);   // 36000 samples a 1/16
+    // A slow clock (3 s a pulse, 1 PPQN) that starts after the patch opened is measured at its
+    // second pulse, as in 2.7.0: only an edge on the very first samples precedes a held clock.
+    ClockFollower slowClock;
+    slowClock.setPpqn(1);
+    CHECK(std::fabs(followerTempo(slowClock, {4800, 148800}, 150000, kRate) - 20.0) < 0.01);
+    // The sample rate changes from 44.1 to 192 kHz: the period keeps its duration (120 BPM), and
+    // the next pulse, 0.5 s later, is not a stop.
+    ClockFollower rate;
+    rate.setPpqn(1);
+    CHECK(std::fabs(followerTempo(rate, {0, 22050, 44100, 66150}, 70000, 44100.0) - 120.0) < 0.01);
+    TransportState tr = rate.tick(false, true, 192000.0);
+    CHECK(std::fabs(tr.tempo - 120.0) < 0.01);
+    // 3850 samples at 44.1 kHz since the last pulse, then 1 + 79236 + 1 at 192 kHz: 0.5 s.
+    for (int i = 0; i < 90000; ++i)
+        tr = rate.tick(i == 79236, true, 192000.0);
+    CHECK(tr.playing && std::fabs(tr.tempo - 120.0) < 0.05);
 }
 
 void testClockFollower()
@@ -1268,6 +1360,174 @@ void testFuzz()
     CHECK(rec.events.size() > 100);
 }
 
+// The clock input, fuzzed, in episodes on a fresh follower: random gaps (exactly four periods and
+// one sample around it among them), RUN starts (skipNextGap), PPQN changes, resets, RUN low, then
+// one long silence. Invariants: the transport stays finite, never goes back while it plays (between
+// resets and PPQN changes), keeps a sane tempo, and has stopped once the silence reaches four
+// times the longest gap it may have measured (or 2 s while no period is known).
+void testFuzzClock()
+{
+    std::printf("fuzz: random clock gaps, RUN starts, PPQN changes, then a silence: the transport stays sane\n");
+    Rng rng(4321);
+    const double sr = 48000.0;
+    int64_t monotonicChecks = 0, stoppedChecks = 0;
+    for (int episode = 0; episode < 20; ++episode) {
+        ClockFollower clock;
+        clock.setPpqn(1);
+        double lastBeat = -1e9;
+        int regular = 24000;   // the last ordinary gap
+        int maxGap = 0;        // the longest gap the follower may have measured
+        int toNext = 1 + int(rng.below(48000));
+        const int64_t silenceAt = 8 * 48000 + int64_t(rng.below(8 * 48000));
+        bool silent = false;
+        int64_t since = 0;
+        for (int64_t i = 0; i < silenceAt + 14 * 48000; ++i) {
+            bool pulse = false;
+            if (!silent && --toNext <= 0) {
+                pulse = true;
+                const uint32_t r = rng.below(16);
+                int gap = 2000 + int(rng.below(30000));
+                if (r == 0)
+                    gap = 4 * regular;        // exactly four periods: not a stop
+                else if (r == 1)
+                    gap = 4 * regular + 1;    // just beyond: a stop
+                else if (r == 2)
+                    gap = 4 * regular - 1;
+                else
+                    regular = gap;
+                toNext = gap;
+                if (i + gap >= silenceAt)
+                    silent = true;            // the last pulse before the silence
+            }
+            if (pulse) {
+                maxGap = std::max(maxGap, int(since) + 1);   // a gap, counted as the follower does
+                since = 0;
+            } else {
+                ++since;
+            }
+            if (rng.below(100000) == 0) {
+                clock.reset();
+                lastBeat = -1e9;
+            }
+            if (rng.below(150000) == 0) {
+                static const int kPpqn[] = {1, 2, 4, 8, 12, 24, 48};
+                clock.setPpqn(kPpqn[rng.below(7)]);
+                lastBeat = -1e9;   // a new resolution may move the position
+            }
+            if (rng.below(50000) == 0)
+                clock.skipNextGap();
+            const bool run = rng.below(200000) != 0;
+            const TransportState tr = clock.tick(pulse, run, sr);
+            CHECK(std::isfinite(tr.beat) && std::isfinite(tr.tempo));
+            CHECK(tr.tempo > 0.0 && tr.tempo < 1e6);
+            if (tr.playing) {
+                if (lastBeat > -1e8) {
+                    CHECK(tr.beat >= lastBeat - 1e-9);
+                    ++monotonicChecks;
+                }
+                lastBeat = tr.beat;
+            }
+            // `since` + 1 samples since the last pulse: stopped from four times the gap on.
+            if (silent && since >= std::max<int64_t>(4 * int64_t(maxGap), int64_t(2 * sr))) {
+                CHECK(!tr.playing);
+                ++stoppedChecks;
+            }
+        }
+    }
+    CHECK(monotonicChecks > 1000000);
+    CHECK(stoppedChecks > 20 * 48000);
+}
+
+// Random patterns (every field, drum hits included) played in random blocks keep notes paired,
+// and the saved state round-trips: saving what was loaded gives the same text.
+void testFuzzPatterns()
+{
+    std::printf("fuzz: random patterns keep notes paired; the saved state round-trips\n");
+    Rng rng(777);
+    long events = 0;
+    for (int round = 0; round < 30; ++round) {
+        PatternBank bank;
+        for (auto& t : bank.tracks) {
+            for (auto& s : t.steps) {
+                s.active = rng.below(3) == 0;
+                s.numNotes = uint8_t(1 + rng.below(kMaxVoices));
+                for (auto& d : s.degree)
+                    d = int8_t(int(rng.below(29)) - 14);
+                s.velocity = uint8_t(1 + rng.below(127));
+                s.gate = rng.below(8) == 0 ? kGateTie : uint8_t(1 + rng.below(100));
+                s.probability = uint8_t(rng.below(101));
+                s.ratchet = uint8_t(1 + rng.below(kMaxRatchet));
+                s.condition = uint8_t(rng.below(kCondCount));
+                s.condB = uint8_t(1 + rng.below(8));
+                s.condA = uint8_t(1 + rng.below(s.condB));
+                s.hits = uint8_t(rng.below(256));
+                for (auto& h : s.drum) {
+                    h.velocity = uint8_t(1 + rng.below(127));
+                    h.gate = rng.below(8) == 0 ? kGateTie : uint8_t(1 + rng.below(100));
+                    h.probability = uint8_t(rng.below(101));
+                    h.ratchet = uint8_t(1 + rng.below(kMaxRatchet));
+                    h.condition = uint8_t(rng.below(kCondCount));
+                    h.condB = uint8_t(1 + rng.below(8));
+                    h.condA = uint8_t(1 + rng.below(h.condB));
+                }
+            }
+            for (auto& r : t.rows) {
+                r.level = uint8_t(rng.below(101));
+                r.probability = uint8_t(rng.below(101));
+                r.mute = rng.below(4) == 0;
+            }
+        }
+        const std::string text = serializePatterns(bank);
+        PatternBank back;
+        CHECK(deserializePatterns(text, back));
+        CHECK(serializePatterns(back) == text);
+
+        Sequencer seq;
+        seq.reset(48000.0);
+        double values[kNumParams];
+        defaultParamValues(values);
+        const ParamDesc* table = paramTable();
+        for (int p = 0; p < kNumParams; ++p)
+            if (rng.below(3) == 0)
+                values[p] = table[p].min + double(rng.below(uint32_t(table[p].max - table[p].min + 1)));
+        for (int t = 0; t < kNumTracks; ++t)
+            values[trackParamIndex(t, kTrackEnabled)] = 1;
+        seq.setSettings(settingsFromValues(values));
+        seq.setPatterns(back);
+        Recorder rec;
+        uint64_t frame = 0;
+        double beat = 0.0;
+        for (int i = 0; i < 400; ++i) {
+            const uint32_t n = 1 + rng.below(1024);
+            TransportState tr;
+            tr.playing = true;
+            tr.beat = beat;
+            tr.tempo = 60.0 + double(rng.below(200));
+            rec.beginBlock(frame, n);
+            seq.render(tr, 0, n, rec);
+            frame += n;
+            beat += n * tr.tempo / 60.0 / 48000.0;
+        }
+        stop(seq, rec, frame);
+        stop(seq, rec, frame + 256);
+        CHECK(rec.orderOk);
+        // Paired note by note: every on of a track's key before its off, and none left sounding.
+        bool sounding[kNumTracks][128] = {};
+        int errors = 0;
+        for (const auto& e : rec.events) {
+            bool& on = sounding[e.track][e.key];
+            errors += e.on == on;
+            on = e.on;
+        }
+        for (const auto& t : sounding)
+            for (bool b : t)
+                errors += b;
+        CHECK(errors == 0);
+        events += long(rec.events.size());
+    }
+    CHECK(events > 3000);   // not an empty proof
+}
+
 } // namespace
 
 int main()
@@ -1283,6 +1543,8 @@ int main()
     testStartWindow();
     testGrid16x8();
     testClockFollower();
+    testClockRestart();
+    testClockRestartCases();
     testPpqnChangeKeepsPosition();
     testDrunkRewind();
     testLaneKeepsNewerNote();
@@ -1305,6 +1567,8 @@ int main()
     testState();
     testParams();
     testFuzz();
+    testFuzzClock();
+    testFuzzPatterns();
     if (failures) {
         std::printf("%d check(s) failed\n", failures);
         return 1;

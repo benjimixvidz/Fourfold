@@ -1,6 +1,7 @@
 #include "cv.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace tetrad {
 
@@ -18,10 +19,39 @@ void ClockFollower::setPpqn(int ppqn)
 
 TransportState ClockFollower::tick(bool pulse, bool run, double sampleRate)
 {
+    // A new sample rate: what was counted in samples keeps its duration.
+    if (rate_ > 0 && sampleRate != rate_) {
+        const double k = sampleRate / rate_;
+        periodSamples_ *= k;
+        samplesSincePulse_ *= k;
+        lastLongGap_ *= k;
+        derivedPpqn_ = 0;
+    }
+    rate_ = sampleRate;
+    if (age_ < 8)
+        ++age_;
     samplesSincePulse_ += 1;
     if (pulse) {
-        if (pulses_ >= 0)
+        // A gap long enough for the transport to have stopped (more than four periods) is the
+        // clock starting again after a stop, not a slower tempo. Taken as the period, it would give
+        // the steps after the start a tempo far too slow (a gate as long as the stop, so the next
+        // note comes without a new attack). The last period stays. Shorter gaps (swing, a missed
+        // pulse, a slow-down) are measured as before. Before the first period is known, only the
+        // gap after an edge on the very first samples can be a stop: a patch that opens over a
+        // clock held high reads 0 V first (more than 2 s, the `timeout` below, means it was held).
+        const double stopGap = periodSamples_ > 0 ? 4 * periodSamples_ : earlyEdge_ ? 2 * sampleRate : HUGE_VAL;
+        bool restart = samplesSincePulse_ > stopGap;   // beyond: stopped (as 2.7.0)
+        // Right after a restart, a second long gap like the first is a clock that slowed down by
+        // more than four times: measured. Unlike it (a second stop), it is another restart.
+        if (restart && trustNextGap_ && std::fabs(samplesSincePulse_ - lastLongGap_) <= 0.5 * lastLongGap_)
+            restart = false;
+        if (pulses_ >= 0 && !restart && !skipGap_)
             periodSamples_ = samplesSincePulse_;
+        if (restart)
+            lastLongGap_ = samplesSincePulse_;
+        trustNextGap_ = restart;
+        skipGap_ = false;
+        earlyEdge_ = pulses_ < 0 && age_ <= 4;
         ++pulses_;
         samplesSincePulse_ = 0;
     }

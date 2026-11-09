@@ -448,7 +448,7 @@ void Sequencer::playNotes(int track, int index, double gateBeats, uint32_t local
         }
 
         active_[numActive_++] = {now + gateFrames, uint8_t(track), uint8_t(key), step.degree[v]};
-        sink.emit({frame, true, uint8_t(track), uint8_t(key), velocity / 127.0f, step.degree[v]});
+        sink.emit({frame, true, uint8_t(track), uint8_t(key), float(velocity) / 127.0f, step.degree[v]});
     }
 }
 
@@ -478,7 +478,7 @@ void Sequencer::playHit(int track, int index, int row, double gateBeats, uint32_
     const uint64_t gateFrames = std::max<uint64_t>(1, uint64_t(std::llround(gateBeats / beatsPerFrame)));
     const int velocity = std::clamp(h.velocity * ts.velocity / 100 * tp.rows[row].level / 100, 1, 127);
     active_[numActive_++] = {now + gateFrames, uint8_t(track), key, int8_t(row)};
-    sink.emit({frame, true, uint8_t(track), key, velocity / 127.0f, int8_t(row)});
+    sink.emit({frame, true, uint8_t(track), key, float(velocity) / 127.0f, int8_t(row)});
 }
 
 void Sequencer::releaseDue(uint64_t limit, bool inclusive, uint32_t firstFrame, NoteSink& sink)

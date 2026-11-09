@@ -393,7 +393,7 @@ void Inspector::fieldMenu(int field)
             values = {10, 25, 50, 75, 90, 100};
         for (int v : values)
             menu->addChild(createMenuItem(which == kRowFocus ? string::f("Row %d", v + 1) : string::f("%d%%", v), "",
-                                          [=] { setRow(which, v); }));
+                                          [=, this] { setRow(which, v); }));
         return;
     }
     if (f.ref == Ref::Step) {
